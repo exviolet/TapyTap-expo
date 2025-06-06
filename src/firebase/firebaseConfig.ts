@@ -1,8 +1,6 @@
 // src/firebase/firebaseConfig.ts
-// import { getAuth } from 'firebase/auth'; // Убираем этот импорт, так как будем использовать initializeAuth
-import { FirebaseApp } from 'firebase/app'; // Добавим тип для FirebaseApp
+import { Auth } from 'firebase/auth'; // Импортируем тип Auth
 
-// Твои конфигурационные данные Firebase
 export const firebaseConfig = {
   apiKey: "AIzaSyB4-cje5nVNTVNNnNEDOoqZk0-oZB8iJII",
   authDomain: "habit-tracker-app-f3555.firebaseapp.com",
@@ -12,9 +10,9 @@ export const firebaseConfig = {
   appId: "1:944916855635:web:f7c6cd2437e060da1effa6",
 };
 
-// Экспортируем переменную, которая будет хранить экземпляр auth
-// Инициализируем ее как null, она будет заполнена в App.tsx
-export let auth: any = null; // Помечаем как any, так как тип может быть специфичным для Firebase Auth
-export function setFirebaseAuth(authInstance: any) {
+export let auth: Auth | null = null; // Правильный тип и инициализация null
+
+export function setFirebaseAuthInstance(authInstance: Auth) {
   auth = authInstance;
+  // console.log("Firebase Auth instance set."); // Можно оставить для отладки
 }

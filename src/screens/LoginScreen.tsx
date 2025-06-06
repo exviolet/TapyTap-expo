@@ -1,44 +1,43 @@
 // src/screens/LoginScreen.tsx
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, TouchableOpacity } from 'react-native';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase/firebaseConfig'; // Импортируем инициализированный auth объект
-import { StackNavigationProp } from '@react-navigation/stack';
+import React, { useState, useContext } from "react";
+import { View, Text, TextInput, Button, StyleSheet, Alert, TouchableOpacity } from "react-native";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { supabase } from "../supabase/supabaseClient";
+import { ThemeContext } from "../components/ThemeProvider";
 
-// Определяем тип для параметров стека аутентификации
-type AuthStackParamList = {
+type RootStackParamList = {
   Welcome: undefined;
   Login: undefined;
   Register: undefined;
 };
 
-type LoginScreenNavigationProp = StackNavigationProp<
-  AuthStackParamList,
-  'Login'
->;
-
 type Props = {
-  navigation: LoginScreenNavigationProp;
+  navigation: StackNavigationProp<RootStackParamList, "Login">;
 };
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { colors } = useContext(ThemeContext);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password); // Используем auth напрямую
-      console.log('Пользователь вошел в систему!');
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) Alert.alert("Ошибка входа", error.message);
     } catch (error: any) {
-      Alert.alert('Ошибка входа', error.message);
+      Alert.alert("Ошибка входа", error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Вход</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[styles.title, { color: colors.text }]}>Вход</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
         placeholder="Email"
         value={email}
         onChangeText={setEmail}
@@ -46,15 +45,15 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         autoCapitalize="none"
       />
       <TextInput
-        style={styles.input}
+        style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text }]}
         placeholder="Пароль"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
       />
-      <Button title="Войти" onPress={handleLogin} />
-      <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-        <Text style={styles.registerText}>У вас нет аккаунта? Зарегистрируйтесь</Text>
+      <Button title={loading ? "Вход..." : "Войти"} onPress={handleLogin} disabled={loading} color={colors.accent} />
+      <TouchableOpacity onPress={() => navigation.navigate("Register")}>
+        <Text style={[styles.registerText, { color: colors.accent }]}>У вас нет аккаунта? Зарегистрируйтесь</Text>
       </TouchableOpacity>
     </View>
   );
@@ -63,27 +62,26 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
-    backgroundColor: '#fff',
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: "bold",
     marginBottom: 30,
   },
   input: {
-    width: '100%',
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
+    width: "100%",
+    padding: 15,
     marginBottom: 15,
+    borderWidth: 1,
+    borderRadius: 8,
+    fontSize: 16,
   },
   registerText: {
     marginTop: 20,
-    color: 'blue',
+    fontSize: 16,
   },
 });
 

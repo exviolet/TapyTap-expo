@@ -1,19 +1,14 @@
 // src/navigation/AppNavigator.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import { NavigationContainer } from "@react-navigation/native";
-import { onAuthStateChanged, User } from 'firebase/auth';
-
-// Импортируем инициализированный auth объект
-import { auth } from '../firebase/firebaseConfig'; // Теперь импортируем auth напрямую
-
-// Импортируем наши новые экраны аутентификации
+import Icon from "react-native-vector-icons/MaterialIcons";
+import { supabase } from "../supabase/supabaseClient";
+import { ThemeContext } from "../components/ThemeProvider";
 import WelcomeScreen from "../screens/WelcomeScreen";
 import LoginScreen from "../screens/LoginScreen";
 import RegistrationScreen from "../screens/RegistrationScreen";
-
-// Импортируем существующие экраны приложения
 import HabitsScreen from "../screens/HabitsScreen";
 import CalendarScreen from "../screens/CalendarScreen";
 import SettingsScreen from "../screens/SettingsScreen";
@@ -24,16 +19,51 @@ import ArchivedHabitsScreen from "../screens/ArchivedHabitsScreen";
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-// Определяем тип пропсов для AppNavigator
-// Больше не нужен firebaseApp в пропсах
-type AppNavigatorProps = {}; 
+function HabitsStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen name="Habits" component={HabitsScreen} options={{ title: "Привычки" }} />
+      <Stack.Screen name="AddHabit" component={AddHabitScreen} options={{ title: "Добавить привычку" }} />
+      <Stack.Screen name="EditHabit" component={EditHabitScreen} options={{ title: "Редактировать привычку" }} />
+    </Stack.Navigator>
+  );
+}
 
-// ... (Оставляем HabitsStack, SettingsStack, AppTabs без изменений) ...
-function HabitsStack() { /* ... */ return (<Stack.Navigator><Stack.Screen name="Habits" component={HabitsScreen} options={{ title: "Привычки" }} /><Stack.Screen name="AddHabit" component={AddHabitScreen} options={{ title: "Добавить привычку" }} /><Stack.Screen name="EditHabit" component={EditHabitScreen} options={{ title: "Редактировать привычку" }} /></Stack.Navigator>); }
-function SettingsStack() { /* ... */ return (<Stack.Navigator><Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Настройки" }} /><Stack.Screen name="ArchivedHabits" component={ArchivedHabitsScreen} options={{ title: "Архивные привычки" }} /></Stack.Navigator>); }
-function AppTabs() { /* ... */ return (<Tab.Navigator screenOptions={{ headerShown: false }}><Tab.Screen name="HabitsStack" component={HabitsStack} options={{ tabBarLabel: "Привычки" }} /><Tab.Screen name="Calendar" component={CalendarScreen} options={{ tabBarLabel: "Календарь" }} /><Tab.Screen name="SettingsStack" component={SettingsStack} options={{ tabBarLabel: "Настройки" }} /></Tab.Navigator>); }
+function SettingsStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Настройки" }} />
+      <Stack.Screen name="ArchivedHabits" component={ArchivedHabitsScreen} options={{ title: "Архивные привычки" }} />
+    </Stack.Navigator>
+  );
+}
 
-// --- Стек для аутентификации (AuthStack) ---
+function AppTabs() {
+  const { colors, theme } = useContext(ThemeContext);
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarStyle: { backgroundColor: colors.background },
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: theme === "light" ? "#666666" : "#CCCCCC",
+        tabBarIcon: ({ color, size }) => {
+          let iconName: string;
+          if (route.name === "HabitsStack") iconName = "home";
+          else if (route.name === "Calendar") iconName = "calendar-today";
+          else if (route.name === "SettingsStack") iconName = "settings";
+          else iconName = "help"; // Значение по умолчанию
+          return <Icon name={iconName} size={size} color={color} />;
+        },
+      })}
+    >
+      <Tab.Screen name="HabitsStack" component={HabitsStack} options={{ tabBarLabel: "Привычки" }} />
+      <Tab.Screen name="Calendar" component={CalendarScreen} options={{ tabBarLabel: "Календарь" }} />
+      <Tab.Screen name="SettingsStack" component={SettingsStack} options={{ tabBarLabel: "Настройки" }} />
+    </Tab.Navigator>
+  );
+}
+
 function AuthStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -44,43 +74,25 @@ function AuthStack() {
   );
 }
 
-// --- Главный навигатор приложения ---
-const AppNavigator: React.FC<AppNavigatorProps> = () => { // Удаляем firebaseApp из пропсов
-  const [user, setUser] = useState<User | null>(null);
-  const [initializing, setInitializing] = useState(true);
+export default function AppNavigator() {
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Убедимся, что auth инициализирован. Он инициализируется в App.tsx
-    if (!auth) { // Проверяем, инициализирован ли auth
-      console.warn("Firebase Auth is not initialized yet in AppNavigator. Waiting...");
-      // Можно добавить задержку или попробовать повторно
-      // Если это происходит, значит App.tsx еще не закончил инициализацию.
-      // Обычно, если App.tsx корректно ждет, эта ветка не должна срабатывать.
-      setInitializing(false); // Для предотвращения бесконечного ожидания
-      return;
-    }
-
-    // Слушаем изменения состояния аутентификации
-    const subscriber = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (initializing) {
-        setInitializing(false);
-      }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
     });
 
-    return subscriber; // Отписываемся от слушателя
-  }, [initializing]); // Зависимость только от initializing
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setLoading(false);
+    });
 
-  if (initializing) {
-    // Можно показывать загрузочный экран, пока проверяется состояние аутентификации
-    return null; // Или <ActivityIndicator />
-  }
+    return () => authListener.subscription?.unsubscribe();
+  }, []);
 
-  return (
-    <NavigationContainer>
-      {user ? <AppTabs /> : <AuthStack />}
-    </NavigationContainer>
-  );
+  if (loading) return null;
+
+  return <NavigationContainer>{session && session.user ? <AppTabs /> : <AuthStack />}</NavigationContainer>;
 }
-
-export default AppNavigator;
