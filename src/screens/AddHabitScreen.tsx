@@ -1,637 +1,749 @@
 // src/screens/AddHabitScreen.tsx
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  Alert,
-  TouchableOpacity,
-  Modal,
-  FlatList,
-  ScrollView,
-  Pressable,
+    View,
+    Text,
+    TextInput,
+    Alert,
+    TouchableOpacity,
+    Modal,
+    ScrollView,
+    StyleSheet, // Используем StyleSheet для стилей
+    Platform,
+    Pressable, // Для анимаций кнопок
 } from "react-native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { ThemeContext } from "../components/ThemeProvider";
 import { addHabit, addCategory, fetchCategories, Category } from "../lib/habits";
 import {
-  Book,
-  Activity,
-  GraduationCap,
-  Briefcase,
-  Music,
-  Coffee,
-  Sun,
-  Moon,
-  Star,
-  Heart,
-  Check,
-} from "lucide-react-native"; // Импортируем конкретные иконки
+    Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart, Check,
+    Lightbulb, Bell, Archive, PlusCircle, MinusCircle, X, Clock // Добавим необходимые иконки
+} from "lucide-react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 
-// Маппинг иконок для выбора
+// Маппинг иконок для выбора (расширьте, если нужно)
 const iconMap: { [key: string]: React.ComponentType<any> } = {
-  Book,
-  Activity,
-  GraduationCap,
-  Briefcase,
-  Music,
-  Coffee,
-  Sun,
-  Moon,
-  Star,
-  Heart,
+    Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart,
+    Lightbulb, Bell, Archive, PlusCircle, MinusCircle, Clock
 };
 
+// Список доступных иконок для выбора (для категорий и привычек)
+const availableIcons = [
+    'Book', 'Activity', 'GraduationCap', 'Briefcase', 'Music', 'Coffee', 'Sun', 'Moon', 'Star', 'Heart',
+    'Lightbulb', 'Bell', 'Archive', 'Clock'
+];
+
 type RootStackParamList = {
-  Habits: undefined;
-  AddHabit: undefined;
+    Habits: undefined;
+    AddHabit: undefined;
 };
 
 type NavigationProp = StackNavigationProp<RootStackParamList, "AddHabit">;
 
 const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }) => {
-  const { colors = { background: "#1A1A2E", text: "#FFFFFF", accent: "#6A0DAD", inputBackground: "#2A2A3E", inputBorder: "#3A3A5C" } } = useContext(ThemeContext);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [goal_series, setGoalSeries] = useState("");
-  const [completionsPerDay, setCompletionsPerDay] = useState(1);
-  const [reminderDays, setReminderDays] = useState<string[]>([]);
-  const [reminderTime, setReminderTime] = useState(new Date());
-  const [showGoalModal, setShowGoalModal] = useState(false);
-  const [showReminderModal, setShowReminderModal] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [newCategoryIcon, setNewCategoryIcon] = useState("Book");
-  const [newCategoryColor, setNewCategoryColor] = useState("#6A0DAD");
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [habitIcon, setHabitIcon] = useState("Book");
-  const [loading, setLoading] = useState(false);
+    const { colors = { background: "#1A1A2E", text: "#FFFFFF", accent: "#6A0DAD", inputBackground: "#2A2A3E", inputBorder: "#3A3A5C" } } = useContext(ThemeContext);
 
-  const goalOptions = ["Ежедневно", "Неделя", "Месяц"];
-  const daysOfWeek = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-  const iconOptions = Object.keys(iconMap);
-  const colorOptions = [
-    "#FF6F61", "#6A0DAD", "#00C4B4", "#FFD54F", "#3F51B5", "#E91E63",
-    "#4CAF50", "#F44336", "#2196F3", "#FF9800", "#9C27B0", "#03A9F4",
-  ];
+    // Состояния для полей формы привычки
+    const [name, setName] = useState("");
+    const [description, setDescription] = useState("");
+    const [goalSeries, setGoalSeries] = useState('Ежедневно'); // Теперь 'Ежедневно', 'Неделя', 'Месяц'
+    const [targetCompletions, setTargetCompletions] = useState(1); // Теперь число
+    const [habitIcon, setHabitIcon] = useState("Book");
+    const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
+    const [allCategories, setAllCategories] = useState<Category[]>([]); // Все категории
+    const [reminders, setReminders] = useState<Date[]>([]); // Список объектов Date для напоминаний
 
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const fetchedCategories = await fetchCategories();
-        setCategories(fetchedCategories);
-      } catch (error) {
-        console.error("Error loading categories:", error);
-      }
+    // Состояния для модального окна добавления категории
+    const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState("");
+    const [newCategoryIcon, setNewCategoryIcon] = useState("Book");
+    const [newCategoryColor, setNewCategoryColor] = useState("#6A0DAD");
+
+    // Состояния для модального окна выбора времени напоминания
+    const [showReminderTimePicker, setShowReminderTimePicker] = useState(false);
+    const [currentReminderTime, setCurrentReminderTime] = useState(new Date()); // Временная переменная для выбора времени
+
+    const [loading, setLoading] = useState(false);
+
+    // Опции цвета для категорий
+    const colorOptions = [
+        "#FF6F61", "#6A0DAD", "#00C4B4", "#FFD54F", "#3F51B5", "#E91E63",
+        "#4CAF50", "#F44336", "#2196F3", "#FF9800", "#9C27B0", "#03A9F4",
+    ];
+
+    // Анимации для кнопок
+    const scale = useSharedValue(1);
+    const animatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+    }));
+
+    const handlePressIn = () => {
+        scale.value = withSpring(0.95);
     };
-    loadCategories();
-  }, []);
 
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+    const handlePressOut = () => {
+        scale.value = withSpring(1);
+    };
 
-  const handlePressIn = () => {
-    scale.value = withSpring(0.95);
-  };
+    // Загрузка категорий при загрузке экрана и при добавлении новой категории
+    const loadCategories = useCallback(async () => {
+        try {
+            const fetchedCategories = await fetchCategories();
+            const filtered = fetchedCategories.filter(cat => cat.id !== "All" && cat.id !== "Без категории");
+            setAllCategories(filtered);
+        } catch (error) {
+            console.error("Error loading categories:", error);
+            Alert.alert("Ошибка", "Не удалось загрузить категории.");
+        }
+    }, []);
 
-  const handlePressOut = () => {
-    scale.value = withSpring(1);
-  };
+    useEffect(() => {
+        loadCategories();
+    }, [loadCategories]);
 
-const handleAddHabit = async () => {
-    if (!name || !goal_series || reminderDays.length === 0) {
-        Alert.alert("Ошибка", "Заполните обязательные поля: Название, Цель серий и Напоминания!");
-        return;
-    }
+    // Обработчик изменения целевого количества выполнений
+    const handleTargetCompletionsChange = (value: number) => {
+        setTargetCompletions(Math.max(1, value)); // Минимум 1
+    };
 
-    setLoading(true);
-    try {
-        await addHabit(
-            {
-                name,
-                description,
-                frequency: { days: reminderDays.join(", "), time: reminderTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) },
-                progress: 0,
-                goal_series,
-                icon: habitIcon,
-                // Добавьте это новое поле
-                target_completions: completionsPerDay, // <--- ВОТ ЧТО НУЖНО ДОБАВИТЬ
-            },
-            selectedCategories
+    // Обработчик добавления новой категории
+    const handleAddNewCategory = async () => {
+        if (!newCategoryName.trim()) {
+            Alert.alert("Ошибка", "Название новой категории не может быть пустым.");
+            return;
+        }
+        try {
+            const addedCategory = await addCategory({
+                name: newCategoryName.trim(),
+                color: newCategoryColor,
+                icon: newCategoryIcon,
+            });
+            Alert.alert("Успех", `Категория "${addedCategory.name}" добавлена.`);
+            setNewCategoryName('');
+            setNewCategoryColor('#6A0DAD'); // Сброс цвета
+            setNewCategoryIcon('Book'); // Сброс иконки
+            setShowAddCategoryModal(false); // Закрыть модальное окно
+            await loadCategories(); // Перезагрузить категории
+        } catch (error) {
+            console.error("Error adding new category:", error);
+            Alert.alert("Ошибка", `Не удалось добавить категорию: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    };
+
+    // Переключение категории
+    const handleCategoryToggle = (category: Category) => {
+        setSelectedCategories((prev) =>
+            prev.some((c) => c.id === category.id)
+                ? prev.filter((c) => c.id !== category.id)
+                : [...prev, category]
         );
-        navigation.goBack();
-    } catch (error) {
-        console.error("Error adding habit:", error); // Логируйте ошибку для отладки
-        Alert.alert("Ошибка", "Не удалось добавить привычку");
-    } finally {
-        setLoading(false);
-    }
-};
+    };
 
-  const toggleDay = (day: string) => {
-    setReminderDays((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
-    );
-  };
+    const isCategorySelected = (categoryId: string) => {
+        return selectedCategories.some((c) => c.id === categoryId);
+    };
 
-  const addNewCategory = async () => {
-    if (!newCategoryName) {
-      Alert.alert("Ошибка", "Введите название категории");
-      return;
-    }
+    // Обработчики напоминаний
+    const handleAddReminder = () => {
+        setReminders(prev => {
+            // Проверяем, существует ли уже напоминание с таким временем
+            const timeExists = prev.some(r =>
+                r.getHours() === currentReminderTime.getHours() &&
+                r.getMinutes() === currentReminderTime.getMinutes()
+            );
+            if (timeExists) {
+                Alert.alert("Ошибка", "Напоминание с таким временем уже существует.");
+                return prev;
+            }
+            return [...prev, currentReminderTime].sort((a, b) => a.getTime() - b.getTime()); // Сортируем по времени
+        });
+        setCurrentReminderTime(new Date()); // Сброс для следующего напоминания
+    };
 
-    try {
-      const newCategory = await addCategory({
-        name: newCategoryName,
-        icon: newCategoryIcon,
-        color: newCategoryColor,
-      });
-      setCategories([...categories, newCategory]);
-      setNewCategoryName("");
-      setNewCategoryIcon("Book");
-      setNewCategoryColor("#6A0DAD");
-    } catch (error) {
-      Alert.alert("Ошибка", "Не удалось добавить категорию");
-    }
-  };
+    const handleRemoveReminder = (indexToRemove: number) => {
+        setReminders(prev => prev.filter((_, index) => index !== indexToRemove));
+    };
 
-  const toggleCategory = (id: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(id) ? prev.filter((catId) => catId !== id) : [...prev, id]
-    );
-  };
+    const onTimeSelected = (event: any, selectedTime: Date | undefined) => {
+        setShowReminderTimePicker(false);
+        if (selectedTime) {
+            setCurrentReminderTime(selectedTime);
+        }
+    };
 
-  return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Добавить привычку</Text>
+    // Обработчик добавления привычки
+    const handleAddHabit = async () => {
+        if (!name.trim()) {
+            Alert.alert("Ошибка", "Название привычки не может быть пустым.");
+            return;
+        }
+        if (targetCompletions <= 0) {
+            Alert.alert("Ошибка", "Целевое количество выполнений должно быть больше 0.");
+            return;
+        }
 
-        <Text style={styles.sectionHeader}>Название и описание</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Название"
-          placeholderTextColor="#A0A0C0"
-          value={name}
-          onChangeText={setName}
-        />
-        <TextInput
-          style={[styles.input, { height: 100 }]}
-          placeholder="Описание (необязательно)"
-          placeholderTextColor="#A0A0C0"
-          value={description}
-          onChangeText={setDescription}
-          multiline
-        />
+        const goalSeriesValue = goalSeries === 'Ежедневно' ? 1 : goalSeries === 'Неделя' ? 7 : 30;
+        const reminderTimes = reminders.map(r => r.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })).join(', ');
 
-        <Text style={styles.sectionHeader}>Иконка привычки</Text>
-        <View style={styles.section}>
-          <FlatList
-            data={iconOptions}
-            horizontal
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => {
-              const LucideIcon = iconMap[item];
-              return (
-                <Animated.View style={habitIcon === item ? styles.selectedIcon : undefined}>
-                  <TouchableOpacity onPress={() => setHabitIcon(item)} style={styles.iconButton}>
-                    <LucideIcon size={28} color={habitIcon === item ? colors.accent : "#A0A0C0"} strokeWidth={2} />
-                  </TouchableOpacity>
-                </Animated.View>
-              );
-            }}
-            style={styles.iconList}
-          />
-        </View>
+        setLoading(true);
+        try {
+            await addHabit(
+                {
+                    name: name.trim(),
+                    description: description.trim(),
+                    frequency: reminderTimes, // Используем отформатированные напоминания
+                    progress: 0,
+                    goal_series: goalSeriesValue,
+                    icon: habitIcon,
+                    target_completions: targetCompletions,
+                },
+                selectedCategories.map(cat => cat.id) // Передаем только ID категорий
+            );
+            Alert.alert("Успех", "Привычка успешно добавлена!");
+            navigation.goBack();
+        } catch (error) {
+            console.error("Error adding habit:", error);
+            Alert.alert("Ошибка", `Не удалось добавить привычку: ${error instanceof Error ? error.message : String(error)}`);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-        <Text style={styles.sectionHeader}>Цель серий</Text>
-        <View style={styles.rowContainer}>
-          <TouchableOpacity style={[styles.optionButton, { flex: 1, marginRight: 8 }]} onPress={() => setShowGoalModal(true)}>
-            <Text style={styles.optionText}>Цель серий: {goal_series || "Выберите"}</Text>
-          </TouchableOpacity>
-          <View style={[styles.optionButton, { flex: 1, marginLeft: 8 }]}>
-            <Text style={styles.optionText}>Выполнений в день:</Text>
-            <View style={styles.completionsContainer}>
-              <TouchableOpacity 
-                style={styles.completionButton} 
-                onPress={() => setCompletionsPerDay(prev => Math.max(1, prev - 1))}
-              >
-                <Text style={styles.completionButtonText}>-</Text>
-              </TouchableOpacity>
-              <Text style={styles.completionText}>{completionsPerDay}</Text>
-              <TouchableOpacity 
-                style={styles.completionButton} 
-                onPress={() => setCompletionsPerDay(prev => prev + 1)}
-              >
-                <Text style={styles.completionButtonText}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-        <Modal visible={showGoalModal} transparent animationType="fade">
-          <Animated.View style={[styles.modalOverlay, animatedStyle]}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalHeader}>Выберите цель серий</Text>
-              {goalOptions.map((option) => (
-                <TouchableOpacity
-                  key={option}
-                  onPress={() => {
-                    setGoalSeries(option);
-                    setShowGoalModal(false);
-                  }}
-                  style={[styles.modalOption, goal_series === option && styles.selectedModalOption]}
-                >
-                  <Text style={[styles.modalText, goal_series === option && styles.selectedModalText]}>{option}</Text>
-                </TouchableOpacity>
-              ))}
-              <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={() => setShowGoalModal(false)}>
-                <View style={styles.modalButtonSecondary}>
-                  <Text style={styles.modalButtonText}>Закрыть</Text>
+    const CurrentHabitIcon = iconMap[habitIcon || 'Book'];
+    const NewCategoryPreviewIcon = iconMap[newCategoryIcon || 'Book'];
+
+
+    return (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <ScrollView contentContainerStyle={styles.scrollViewContent}>
+                <Text style={[styles.title, { color: colors.text }]}>Добавить привычку</Text>
+
+                <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+                    <Text style={[styles.label, { color: colors.text }]}>Название привычки</Text>
+                    <TextInput
+                        style={[styles.input, { color: colors.text }]}
+                        value={name}
+                        onChangeText={setName}
+                        placeholder="Например, Читать 30 минут"
+                        placeholderTextColor={colors.text + '80'}
+                    />
                 </View>
-              </Pressable>
-            </View>
-          </Animated.View>
-        </Modal>
 
-        <Text style={styles.sectionHeader}>Категории (необязательно)</Text>
-        <TouchableOpacity style={styles.optionButton} onPress={() => setShowCategoryModal(true)}>
-          <Text style={styles.optionText}>
-            Категории: {selectedCategories.length > 0 ? selectedCategories.map((id) => categories.find((c) => c.id === id)?.name).join(", ") : "Выберите"}
-          </Text>
-        </TouchableOpacity>
-        <Modal visible={showCategoryModal} transparent animationType="fade">
-          <Animated.View style={[styles.modalOverlay, animatedStyle]}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalHeader}>Добавить категорию</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Название категории"
-                placeholderTextColor="#A0A0C0"
-                value={newCategoryName}
-                onChangeText={setNewCategoryName}
-              />
-              <Text style={styles.label}>Иконка категории:</Text>
-              <FlatList
-                data={iconOptions}
-                horizontal
-                keyExtractor={(item) => item}
-                renderItem={({ item }) => {
-                  const LucideIcon = iconMap[item];
-                  return (
-                    <Animated.View style={newCategoryIcon === item ? styles.selectedIcon : undefined}>
-                      <TouchableOpacity onPress={() => setNewCategoryIcon(item)} style={styles.iconButton}>
-                        <LucideIcon size={24} color={newCategoryIcon === item ? colors.accent : "#A0A0C0"} strokeWidth={2} />
-                      </TouchableOpacity>
+                <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+                    <Text style={[styles.label, { color: colors.text }]}>Описание (необязательно)</Text>
+                    <TextInput
+                        style={[styles.input, styles.textArea, { color: colors.text }]}
+                        value={description}
+                        onChangeText={setDescription}
+                        placeholder="Дополнительные детали о привычке"
+                        placeholderTextColor={colors.text + '80'}
+                        multiline
+                        numberOfLines={3}
+                    />
+                </View>
+
+                <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+                    <Text style={[styles.label, { color: colors.text }]}>Цель серии</Text>
+                    <View style={styles.goalSeriesContainer}>
+                        {['Ежедневно', 'Неделя', 'Месяц'].map((option) => (
+                            <TouchableOpacity
+                                key={option}
+                                style={[
+                                    styles.goalSeriesButton,
+                                    {
+                                        backgroundColor: goalSeries === option ? colors.accent : 'transparent',
+                                        borderColor: colors.inputBorder,
+                                    },
+                                ]}
+                                onPress={() => setGoalSeries(option)}
+                            >
+                                <Text style={[styles.goalSeriesButtonText, { color: goalSeries === option ? '#FFFFFF' : colors.text }]}>
+                                    {option}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </View>
+
+                <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+                    <Text style={[styles.label, { color: colors.text }]}>Целевое количество выполнений</Text>
+                    <View style={styles.targetCompletionsControl}>
+                        <TouchableOpacity
+                            style={[styles.targetButton, { backgroundColor: colors.accent }]}
+                            onPress={() => handleTargetCompletionsChange(targetCompletions - 1)}
+                        >
+                            <MinusCircle size={20} color="#FFFFFF" />
+                        </TouchableOpacity>
+                        <TextInput
+                            style={[styles.targetInput, { color: colors.text, borderColor: colors.inputBorder }]}
+                            value={String(targetCompletions)}
+                            onChangeText={(text) => {
+                                const num = parseInt(text, 10);
+                                setTargetCompletions(isNaN(num) ? 1 : Math.max(1, num));
+                            }}
+                            keyboardType="numeric"
+                        />
+                        <TouchableOpacity
+                            style={[styles.targetButton, { backgroundColor: colors.accent }]}
+                            onPress={() => handleTargetCompletionsChange(targetCompletions + 1)}
+                        >
+                            <PlusCircle size={20} color="#FFFFFF" />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+                    <Text style={[styles.label, { color: colors.text, marginBottom: 10 }]}>Иконка привычки</Text>
+                    <View style={styles.iconSelectionContainer}>
+                        <View style={[styles.currentIconPreview, { backgroundColor: colors.inputBorder }]}>
+                            <CurrentHabitIcon size={32} color={colors.accent} strokeWidth={2} />
+                        </View>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.iconScroll}>
+                            {availableIcons.map((iconName) => {
+                                const IconComponent = iconMap[iconName];
+                                if (!IconComponent) return null;
+                                return (
+                                    <TouchableOpacity
+                                        key={iconName}
+                                        style={[
+                                            styles.iconOption,
+                                            {
+                                                backgroundColor: habitIcon === iconName ? colors.accent : colors.inputBackground,
+                                                borderColor: habitIcon === iconName ? colors.accent : colors.inputBorder,
+                                            },
+                                        ]}
+                                        onPress={() => setHabitIcon(iconName)}
+                                    >
+                                        <IconComponent size={24} color={habitIcon === iconName ? '#FFFFFF' : colors.text} strokeWidth={2} />
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+                </View>
+
+
+                <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+                    <Text style={[styles.label, { color: colors.text, marginBottom: 10 }]}>Категории (необязательно)</Text>
+                    <View style={styles.categoriesContainer}>
+                        {allCategories.map((category) => {
+                            const CatIcon = category.icon && iconMap[category.icon] ? iconMap[category.icon] : Book;
+                            return (
+                                <TouchableOpacity
+                                    key={category.id}
+                                    style={[
+                                        styles.categoryChip,
+                                        {
+                                            backgroundColor: isCategorySelected(category.id) ? category.color : 'rgba(255,255,255,0.1)',
+                                            borderColor: category.color,
+                                            borderWidth: isCategorySelected(category.id) ? 0 : 1,
+                                        },
+                                    ]}
+                                    onPress={() => handleCategoryToggle(category)}
+                                >
+                                    <CatIcon size={14} color={isCategorySelected(category.id) ? '#FFFFFF' : category.color} style={{ marginRight: 5 }} />
+                                    <Text style={[styles.categoryChipText, { color: isCategorySelected(category.id) ? '#FFFFFF' : colors.text }]}>
+                                        {category.name}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                        <TouchableOpacity
+                            style={[
+                                styles.categoryChip,
+                                {
+                                    backgroundColor: colors.inputBackground,
+                                    borderColor: colors.inputBorder,
+                                    borderWidth: 1,
+                                    borderStyle: 'dashed', // Обозначаем как добавление
+                                },
+                            ]}
+                            onPress={() => setShowAddCategoryModal(true)}
+                        >
+                            <PlusCircle size={14} color={colors.text} style={{ marginRight: 5 }} />
+                            <Text style={[styles.categoryChipText, { color: colors.text }]}>Добавить категорию</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                <Modal visible={showAddCategoryModal} transparent animationType="fade">
+                    <Animated.View style={[styles.modalOverlay, animatedStyle]}>
+                        <View style={[styles.modalContent, { backgroundColor: colors.inputBackground }]}>
+                            <Text style={[styles.modalHeader, { color: colors.text }]}>Добавить новую категорию</Text>
+
+                            <TextInput
+                                style={[styles.input, { color: colors.text, borderColor: colors.inputBorder }]}
+                                placeholder="Название категории"
+                                placeholderTextColor={colors.text + '80'}
+                                value={newCategoryName}
+                                onChangeText={setNewCategoryName}
+                            />
+                            <Text style={[styles.label, { color: colors.text }]}>Иконка категории:</Text>
+                            <View style={styles.iconSelectionContainer}>
+                                <View style={[styles.currentIconPreview, { backgroundColor: colors.inputBorder }]}>
+                                    <NewCategoryPreviewIcon size={32} color={colors.accent} strokeWidth={2} />
+                                </View>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.iconScroll}>
+                                    {availableIcons.map((iconName) => {
+                                        const IconComponent = iconMap[iconName];
+                                        if (!IconComponent) return null;
+                                        return (
+                                            <TouchableOpacity
+                                                key={iconName}
+                                                style={[
+                                                    styles.iconOption,
+                                                    {
+                                                        backgroundColor: newCategoryIcon === iconName ? colors.accent : colors.inputBackground,
+                                                        borderColor: newCategoryIcon === iconName ? colors.accent : colors.inputBorder,
+                                                    },
+                                                ]}
+                                                onPress={() => setNewCategoryIcon(iconName)}
+                                            >
+                                                <IconComponent size={24} color={newCategoryIcon === iconName ? '#FFFFFF' : colors.text} strokeWidth={2} />
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
+                            </View>
+
+                            <Text style={[styles.label, { color: colors.text }]}>Цвет категории:</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorList}>
+                                {colorOptions.map((item) => (
+                                    <TouchableOpacity
+                                        key={item}
+                                        onPress={() => setNewCategoryColor(item)}
+                                        style={[styles.colorButton, { backgroundColor: item }]}
+                                    >
+                                        {newCategoryColor === item && <Check size={16} color="#FFFFFF" strokeWidth={2} />}
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+
+                            <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={handleAddNewCategory}>
+                                <View style={[styles.modalButton, { backgroundColor: colors.accent }]}>
+                                    <Text style={styles.modalButtonText}>Добавить</Text>
+                                </View>
+                            </Pressable>
+                            <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={() => setShowAddCategoryModal(false)}>
+                                <View style={[styles.modalButtonSecondary, { backgroundColor: colors.inputBorder }]}>
+                                    <Text style={[styles.modalButtonText, { color: colors.text }]}>Отмена</Text>
+                                </View>
+                            </Pressable>
+                        </View>
                     </Animated.View>
-                  );
-                }}
-                style={styles.iconList}
-              />
-              <Text style={styles.label}>Цвет категории:</Text>
-              <FlatList
-                data={colorOptions}
-                horizontal
-                keyExtractor={(item) => item}
-                renderItem={({ item }) => (
-                  <TouchableOpacity onPress={() => setNewCategoryColor(item)} style={[styles.colorButton, { backgroundColor: item }]}>
-                    {newCategoryColor === item && <Check size={16} color="#FFFFFF" strokeWidth={2} />}
-                  </TouchableOpacity>
-                )}
-                style={styles.colorList}
-              />
-              <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={addNewCategory}>
-                <View style={styles.modalButton}>
-                  <Text style={styles.modalButtonText}>Добавить категорию</Text>
+                </Modal>
+
+                <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+                    <Text style={[styles.label, { color: colors.text }]}>Напоминания</Text>
+                    <View style={styles.remindersContainer}>
+                        {reminders.length === 0 ? (
+                            <Text style={[styles.emptyReminderText, { color: colors.text + '80' }]}>Нет напоминаний</Text>
+                        ) : (
+                            reminders.map((r, index) => (
+                                <View key={index} style={[styles.reminderChip, { backgroundColor: colors.inputBorder }]}>
+                                    <Text style={[styles.reminderChipText, { color: colors.text }]}>
+                                        {r.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </Text>
+                                    <TouchableOpacity onPress={() => handleRemoveReminder(index)} style={styles.removeReminderButton}>
+                                        <X size={16} color={colors.text} />
+                                    </TouchableOpacity>
+                                </View>
+                            ))
+                        )}
+                        <TouchableOpacity
+                            style={[styles.addReminderButton, { backgroundColor: colors.accent }]}
+                            onPress={() => setShowReminderTimePicker(true)}
+                        >
+                            <Clock size={20} color="#FFFFFF" style={{ marginRight: 5 }} />
+                            <Text style={styles.addReminderButtonText}>Добавить время</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-              </Pressable>
-              <FlatList
-                data={categories}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => {
-                  const LucideIcon = iconMap[item.icon] || iconMap["Book"]; // Fallback на "Book", если иконка не найдена
-                  return (
+
+                {showReminderTimePicker && (
+                    <DateTimePicker
+                        value={currentReminderTime}
+                        mode="time"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        onChange={onTimeSelected}
+                        textColor={colors.text} // Для iOS
+                    />
+                )}
+                {Platform.OS === 'android' && showReminderTimePicker && (
                     <TouchableOpacity
-                      onPress={() => toggleCategory(item.id)}
-                      style={[styles.categoryItem, selectedCategories.includes(item.id) && styles.selectedCategoryItem]}
+                        style={[styles.timePickerConfirmButton, { backgroundColor: colors.accent }]}
+                        onPress={() => {
+                            setShowReminderTimePicker(false);
+                            handleAddReminder(); // Добавляем напоминание после выбора на Android
+                        }}
                     >
-                      <View style={[styles.categoryIndicator, { backgroundColor: selectedCategories.includes(item.id) ? "#FFFFFF" : item.color }]} />
-                      <LucideIcon
-                        size={18}
-                        color={selectedCategories.includes(item.id) ? item.color : "#A0A0C0"}
-                        strokeWidth={2}
-                      />
-                      <Text style={[styles.categoryText, selectedCategories.includes(item.id) && { color: item.color }]}>{item.name}</Text>
+                        <Text style={styles.timePickerConfirmButtonText}>Подтвердить время</Text>
                     </TouchableOpacity>
-                  );
-                }}
-              />
-              <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={() => setShowCategoryModal(false)}>
-                <View style={styles.modalButtonSecondary}>
-                  <Text style={styles.modalButtonText}>Закрыть</Text>
-                </View>
-              </Pressable>
-            </View>
-          </Animated.View>
-        </Modal>
-
-        <Text style={styles.sectionHeader}>Напоминания</Text>
-        <TouchableOpacity style={styles.optionButton} onPress={() => setShowReminderModal(true)}>
-          <Text style={styles.optionText}>
-            Напоминания: {reminderDays.length > 0 ? `${reminderDays.join(", ")} в ${reminderTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Выберите"}
-          </Text>
-        </TouchableOpacity>
-        <Modal visible={showReminderModal} transparent animationType="fade">
-          <Animated.View style={[styles.modalOverlay, animatedStyle]}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalHeader}>Выберите дни и время</Text>
-              <FlatList
-                data={daysOfWeek}
-                horizontal
-                keyExtractor={(item) => item}
-                renderItem={({ item }) => (
-                  <Animated.View style={reminderDays.includes(item) ? styles.selectedDay : undefined}>
-                    <TouchableOpacity onPress={() => toggleDay(item)} style={styles.dayButton}>
-                      <Text style={[styles.dayText, { color: reminderDays.includes(item) ? colors.accent : "#A0A0C0" }]}>{item}</Text>
-                    </TouchableOpacity>
-                  </Animated.View>
                 )}
-                contentContainerStyle={{ paddingHorizontal: 8 }}
-              />
-              <TouchableOpacity style={styles.optionButton} onPress={() => setShowTimePicker(true)}>
-                <Text style={styles.optionText}>Выберите время: {reminderTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
-              </TouchableOpacity>
-              {showTimePicker && (
-                <View style={styles.timePickerContainer}>
-                  <DateTimePicker
-                    value={reminderTime}
-                    mode="time"
-                    display="spinner"
-                    onChange={(event: any, selectedTime: Date | undefined) => {
-                      setShowTimePicker(false);
-                      if (selectedTime) setReminderTime(selectedTime);
-                    }}
-                    textColor="#FFFFFF"
-                  />
-                  <TouchableOpacity onPress={() => setShowTimePicker(false)} style={styles.timePickerButton}>
-                    <Text style={styles.timePickerButtonText}>Подтвердить</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-              <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={() => setShowReminderModal(false)}>
-                <View style={styles.modalButtonSecondary}>
-                  <Text style={styles.modalButtonText}>Закрыть</Text>
-                </View>
-              </Pressable>
-            </View>
-          </Animated.View>
-        </Modal>
 
-        <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={handleAddHabit} disabled={loading}>
-          <View style={[styles.addButton, loading && { opacity: 0.7 }]}>
-            <Text style={styles.addButtonText}>{loading ? "Добавление..." : "Добавить"}</Text>
-          </View>
-        </Pressable>
-      </ScrollView>
-    </View>
-  );
+
+                <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={handleAddHabit} disabled={loading}>
+                    <View style={[styles.saveButton, { backgroundColor: colors.accent }, loading && { opacity: 0.7 }]}>
+                        <Text style={styles.saveButtonText}>{loading ? "Добавление..." : "Добавить привычку"}</Text>
+                    </View>
+                </Pressable>
+
+                <TouchableOpacity
+                    style={[styles.cancelButton, { borderColor: colors.inputBorder }]}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Text style={[styles.cancelButtonText, { color: colors.text }]}>Отмена</Text>
+                </TouchableOpacity>
+
+            </ScrollView>
+        </View>
+    );
 };
 
-// Стили остаются без изменений
-const styles = {
-  container: {
-    flex: 1,
-    backgroundColor: "#1A1A2E",
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "600" as const,
-    color: "#FFFFFF",
-    textAlign: "center" as const,
-    marginBottom: 20,
-  },
-  input: {
-    backgroundColor: "#2A2A3E",
-    color: "#FFFFFF",
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 16,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: "#3A3A5C",
-  },
-  section: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    color: "#A0A0C0",
-    marginBottom: 8,
-  },
-  iconList: {
-    paddingVertical: 4,
-  },
-  iconButton: {
-    padding: 8,
-    marginRight: 8,
-    borderRadius: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  optionButton: {
-    backgroundColor: "#2A2A3E",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#3A3A5C",
-  },
-  optionText: {
-    fontSize: 14,
-    color: "#FFFFFF",
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "center" as const,
-    alignItems: "center" as const,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  modalContent: {
-    backgroundColor: "#2A2A3E",
-    padding: 16,
-    borderRadius: 12,
-    width: "85%" as const,
-    maxHeight: "80%" as const,
-  },
-  modalOption: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#3A3A5C",
-  },
-  modalText: {
-    fontSize: 16,
-    color: "#FFFFFF",
-    textAlign: "center" as const,
-  },
-  modalButton: {
-    padding: 12,
-    borderRadius: 8,
-    marginVertical: 8,
-    backgroundColor: "#6A0DAD",
-    alignItems: "center" as const,
-  },
-  modalButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-  },
-  dayButton: {
-    padding: 8,
-    margin: 4,
-    borderRadius: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  dayText: {
-    fontSize: 14,
-    textAlign: "center" as const,
-  },
-  colorList: {
-    marginVertical: 8,
-  },
-  colorButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 8,
-    justifyContent: "center" as const,
-    alignItems: "center" as const,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.3)",
-  },
-  categoryItem: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#3A3A5C",
-  },
-  categoryIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  categoryText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: "#FFFFFF",
-  },
-  addButton: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: "#6A0DAD",
-    alignItems: "center" as const,
-    marginTop: 16,
-  },
-  addButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600" as const,
-  },
-  sectionHeader: {
-    fontSize: 16,
-    fontWeight: "600" as const,
-    color: "#FFFFFF",
-    marginBottom: 8,
-  },
-  modalHeader: {
-    fontSize: 18,
-    fontWeight: "600" as const,
-    color: "#FFFFFF",
-    marginBottom: 16,
-  },
-  selectedIcon: {
-    borderWidth: 2,
-    borderColor: "#FFD54F",
-    borderRadius: 8,
-  },
-  selectedModalOption: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  selectedModalText: {
-    color: "#FFD54F",
-  },
-  modalButtonSecondary: {
-    padding: 12,
-    borderRadius: 8,
-    marginVertical: 8,
-    backgroundColor: "#6A0DAD",
-    alignItems: "center" as const,
-  },
-  selectedCategoryItem: {
-    display: "flex" as const,
-    gap: 2,
-    borderRadius: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    padding: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: "#3A3A5C",
-  },
-  selectedDay: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  timePickerContainer: {
-    backgroundColor: "#2A2A3E",
-    borderRadius: 8,
-    padding: 8,
-    marginVertical: 8,
-    alignItems: "center" as const,
-  },
-  timePickerButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: "#6A0DAD",
-    marginTop: 8,
-  },
-  timePickerButtonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-  },
-  rowContainer: {
-    flexDirection: 'row' as const,
-    marginBottom: 16,
-  },
-  completionsContainer: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    marginTop: 8,
-  },
-  completionButton: {
-    backgroundColor: '#6A0DAD',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  completionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '600' as const,
-  },
-  completionText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    marginHorizontal: 16,
-  },
-};
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    scrollViewContent: {
+        padding: 20,
+        paddingBottom: 40,
+        paddingTop: Platform.OS === 'android' ? 20 : 0,
+    },
+    title: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        marginBottom: 30,
+        textAlign: 'center',
+    },
+    inputGroup: {
+        padding: 15,
+        borderRadius: 15,
+        marginBottom: 20,
+        borderWidth: 1,
+    },
+    label: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+    input: {
+        fontSize: 16,
+        paddingVertical: 8,
+    },
+    textArea: {
+        minHeight: 80,
+        textAlignVertical: 'top',
+    },
+    goalSeriesContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        marginTop: 10,
+        borderRadius: 10,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)'
+    },
+    goalSeriesButton: {
+        flex: 1,
+        paddingVertical: 12,
+        alignItems: 'center',
+        borderRightWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    goalSeriesButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    targetCompletionsControl: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 10,
+    },
+    targetButton: {
+        padding: 12,
+        borderRadius: 10,
+        marginHorizontal: 10,
+    },
+    targetInput: {
+        width: 80,
+        textAlign: 'center',
+        fontSize: 20,
+        fontWeight: 'bold',
+        paddingVertical: 8,
+        borderRadius: 10,
+        borderWidth: 1,
+    },
+    iconSelectionContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    currentIconPreview: {
+        borderRadius: 12,
+        padding: 10,
+        marginRight: 15,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    iconScroll: {
+        flexGrow: 1,
+        alignItems: 'center',
+    },
+    iconOption: {
+        padding: 10,
+        borderRadius: 12,
+        marginHorizontal: 5,
+        borderWidth: 2,
+    },
+    categoriesContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+    },
+    categoryChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        marginRight: 10,
+        marginBottom: 10,
+    },
+    categoryChipText: {
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    modalOverlay: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "rgba(0, 0, 0, 0.6)",
+    },
+    modalContent: {
+        padding: 20,
+        borderRadius: 12,
+        width: "85%",
+        maxHeight: "80%",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 10,
+    },
+    modalHeader: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    modalButton: {
+        padding: 16,
+        borderRadius: 15,
+        alignItems: 'center',
+        marginTop: 20,
+    },
+    modalButtonText: {
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontWeight: '700',
+    },
+    modalButtonSecondary: {
+        padding: 16,
+        borderRadius: 15,
+        alignItems: 'center',
+        marginTop: 15,
+    },
+    colorList: {
+        marginVertical: 10,
+        paddingHorizontal: 5,
+    },
+    colorButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        marginHorizontal: 5,
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "rgba(255, 255, 255, 0.3)",
+    },
+    saveButton: {
+        padding: 16,
+        borderRadius: 15,
+        alignItems: 'center',
+        marginTop: 20,
+    },
+    saveButtonText: {
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontWeight: '700',
+    },
+    cancelButton: {
+        padding: 16,
+        borderRadius: 15,
+        alignItems: 'center',
+        marginTop: 15,
+        borderWidth: 1,
+    },
+    cancelButtonText: {
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    // Стили для напоминаний
+    remindersContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+    },
+    reminderChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        marginRight: 10,
+        marginBottom: 10,
+    },
+    reminderChipText: {
+        fontSize: 14,
+        fontWeight: '500',
+        marginRight: 5,
+    },
+    removeReminderButton: {
+        marginLeft: 5,
+        padding: 2,
+    },
+    addReminderButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        marginBottom: 10,
+    },
+    addReminderButtonText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    emptyReminderText: {
+        fontSize: 14,
+        fontStyle: 'italic',
+        marginBottom: 10,
+        marginRight: 10,
+    },
+    timePickerConfirmButton: {
+        padding: 12,
+        borderRadius: 10,
+        alignItems: 'center',
+        marginTop: 10,
+        marginHorizontal: 20, // Центрируем кнопку
+    },
+    timePickerConfirmButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '600',
+    }
+});
 
 export default AddHabitScreen;

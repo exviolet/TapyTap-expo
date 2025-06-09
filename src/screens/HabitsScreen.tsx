@@ -7,7 +7,11 @@ import { ThemeContext } from "../components/ThemeProvider";
 import { Habit, fetchHabits, deleteHabit, updateHabit, fetchCategories, deleteCategory, Category } from "../lib/habits";
 import Animated, { FadeIn, FadeOut, useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS} from "react-native-reanimated";
 import { Swipeable, GestureHandlerRootView } from "react-native-gesture-handler"; // Убедитесь, что импортировано
-import { Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart, Trash2, X, Edit, Menu } from "lucide-react-native";
+import {
+    Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart, Check,
+    Lightbulb, Bell, Archive, PlusCircle, MinusCircle, X, Clock, // Добавим новые иконки для UI
+    Menu, Trash2, Edit
+} from "lucide-react-native";
 
 
 import HabitCard from "../components/HabitCard";
@@ -23,17 +27,8 @@ type RootStackParamList = {
 type NavigationProp = StackNavigationProp<RootStackParamList, "Habits">;
 
 const iconMap: { [key: string]: React.ComponentType<any> } = {
-    Book,
-    Activity,
-    GraduationCap,
-    Briefcase,
-    Music,
-    Coffee,
-    Sun,
-    Moon,
-    Star,
-    Heart,
-    Menu,
+    Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart,
+    Lightbulb, Bell, Archive, Clock, PlusCircle, MinusCircle, X, Menu, Trash2, Edit
 };
 
 export default function HabitsScreen() {
@@ -359,7 +354,6 @@ export default function HabitsScreen() {
                 </Animated.View>
             )}
 
-            {/* Модальное окно для управления категорией */}
             <Modal
                 visible={showCategoryMenu}
                 transparent
@@ -372,7 +366,6 @@ export default function HabitsScreen() {
                             {selectedCategoryForMenu?.name}
                         </Text>
 
-                        {/* Кнопка "Перемещать категории" (теперь первая) */}
                         <Pressable 
                             onPressIn={handleSortPressIn} 
                             onPressOut={handleSortPressOut} 
@@ -394,13 +387,12 @@ export default function HabitsScreen() {
                                 style={{ width: '100%' }}
                             >
                                 <Animated.View style={[styles.modalButton, { backgroundColor: colors.accent }, animatedSortHabitsButtonStyle]}>
-                                    <Menu size={20} color="#FFFFFF" /> {/* Иконка для сортировки привычек */}
+                                    <Menu size={20} color="#FFFFFF" /> 
                                     <Text style={styles.modalButtonText}>Сортировать привычки</Text>
                                 </Animated.View>
                             </Pressable>
                         )}
 
-                        {/* Кнопка "Удалить" (теперь вторая) */}
                         <Pressable 
                             onPressIn={handleDeletePressIn} 
                             onPressOut={handleDeletePressOut} 
@@ -413,7 +405,6 @@ export default function HabitsScreen() {
                             </Animated.View>
                         </Pressable>
 
-                        {/* Кнопка "Отмена" */}
                         <Pressable 
                             onPressIn={handleCancelPressIn} 
                             onPressOut={handleCancelPressOut} 

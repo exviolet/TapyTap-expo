@@ -6,7 +6,10 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ThemeContext } from './ThemeProvider';
 import { Habit } from '../lib/habits';
-import { Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart, Trash2 } from "lucide-react-native"; // Импортируем все необходимые иконки
+import {
+    Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart, Check,
+    Lightbulb, Bell, Archive, PlusCircle, MinusCircle, Clock // Добавим новые иконки для UI
+} from "lucide-react-native";
 
 type RootStackParamList = {
     Habits: undefined;
@@ -18,17 +21,8 @@ type NavigationProp = StackNavigationProp<RootStackParamList, "Habits">;
 
 // Маппинг иконок
 const iconMap: { [key: string]: React.ComponentType<any> } = {
-    Book,
-    Activity,
-    GraduationCap,
-    Briefcase,
-    Music,
-    Coffee,
-    Sun,
-    Moon,
-    Star,
-    Heart,
-    Trash2,
+    Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart,
+    Lightbulb, Bell, Archive, Clock, PlusCircle, MinusCircle
 };
 
 interface HabitCardProps {

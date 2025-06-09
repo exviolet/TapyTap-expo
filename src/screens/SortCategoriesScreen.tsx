@@ -7,22 +7,16 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ThemeContext } from '../components/ThemeProvider';
 import { Category, fetchCategories, updateCategoryOrder } from '../lib/habits';
-import { Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart, X, CheckCircle, Menu } from 'lucide-react-native'; // Добавил Menu для drag handle
+import {
+    Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart, Check,
+    Lightbulb, Bell, Archive, PlusCircle, MinusCircle, X, Clock, // Добавим новые иконки для UI
+    Menu, Trash2, Edit, CheckCircle
+} from "lucide-react-native";
 
 // Маппинг иконок (скопируйте ваш iconMap сюда)
 const iconMap: { [key: string]: React.ComponentType<any> } = {
-    Book,
-    Activity,
-    GraduationCap,
-    Briefcase,
-    Music,
-    Coffee,
-    Sun,
-    Moon,
-    Star,
-    Heart,
-    Menu,
-    // ... другие иконки, которые вы используете
+    Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart,
+    Lightbulb, Bell, Archive, Clock, PlusCircle, MinusCircle, X, Menu, Trash2, Edit
 };
 
 type RootStackParamList = {

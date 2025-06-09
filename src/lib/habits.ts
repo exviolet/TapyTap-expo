@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../supabase/supabaseClient";
 
 const HABITS_KEY = "habits";
+const CATEGORIES_KEY = "categories";
 
 export interface Category {
     id: string;
@@ -11,7 +12,7 @@ export interface Category {
     color: string;
     created_at: string;
     updated_at: string;
-    order_index?: number; // Добавили order_index
+    order_index?: number;
 }
 
 export interface Habit {
@@ -19,50 +20,45 @@ export interface Habit {
     user_id: string;
     name: string;
     description: string | null;
-    frequency: { days: string; time: string };
+    frequency: string; // Используется для напоминаний (например, "10:00, 14:30")
     progress: number;
     created_at: string;
     updated_at: string;
-    goal_series: string; // 'Ежедневно', 'Неделя', 'Месяц'
+    goal_series: number; // 1 (ежедневно), 7 (неделя), 30 (месяц)
     icon: string;
-    categories: Category[]; // Добавлено, если не было
-    target_completions: number; // <--- ДОБАВЛЕНО: Целевое количество выполнений в день
-    order_index?: number; // ДОБАВЛЕНО: Порядок сортировки привычек
+    categories: Category[]; // Список объектов Category
+    target_completions: number;
+    order_index?: number;
 }
 
-// Новая функция для обновления порядка категорий
+// --- ФУНКЦИИ ДЛЯ КАТЕГОРИЙ ---
+
 export const updateCategoryOrder = async (categories: Category[]): Promise<void> => {
     try {
-        // Создаем массив промисов, каждый из которых - это операция обновления для одной категории
         const updatePromises = categories.map(async (category, index) => {
             const { error } = await supabase
                 .from("categories")
-                .update({ order_index: index }) // Обновляем только order_index
-                .eq("id", category.id); // Для конкретной категории по ID
+                .update({ order_index: index })
+                .eq("id", category.id);
 
             if (error) {
                 console.error(`Error updating category ${category.id} order:`, error);
-                throw error; // Бросаем ошибку, чтобы Promise.all поймал её
+                throw error;
             }
         });
 
-        // Ждем выполнения всех промисов (обновлений)
         await Promise.all(updatePromises);
-
         console.log("Category order updated successfully.");
-        // После успешного обновления, обновите локальный кэш
-        const updatedCategories = await fetchCategories();
-        await AsyncStorage.setItem("categories", JSON.stringify(updatedCategories)); // Предполагаем, что у вас есть кэш для категорий
+        await AsyncStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
     } catch (error) {
         console.error("Error updating category order:", error);
         throw error;
     }
 };
 
-// Удаление категории
 export const deleteCategory = async (id: string): Promise<void> => {
     try {
-        // Сначала удаляем все связи привычек с этой категорией
+        // Удаляем связи привычек с этой категорией
         const { error: habitCategoryError } = await supabase
             .from("habit_categories")
             .delete()
@@ -70,11 +66,9 @@ export const deleteCategory = async (id: string): Promise<void> => {
 
         if (habitCategoryError) {
             console.error("Error deleting habit category links:", habitCategoryError);
-            // Если возникла ошибка при удалении связей, можно бросить её или просто залогировать
-            // В данном случае, мы хотим, чтобы категория удалилась, даже если связи не удалились
-            // Поэтому просто логируем и продолжаем
         }
 
+        // Удаляем саму категорию
         const { error: categoryError } = await supabase
             .from("categories")
             .delete()
@@ -82,25 +76,21 @@ export const deleteCategory = async (id: string): Promise<void> => {
 
         if (categoryError) throw categoryError;
 
-        // Обновляем локальный кэш категорий после удаления
+        // Обновляем кэш категорий
         const updatedCategories = await fetchCategories();
-        // ВАЖНО: Если вы кэшируете привычки с категориями, вам также может понадобиться
-        // переполучить привычки, чтобы обновить их категории.
-        // await fetchHabits(); // Раскомментируйте, если привычки сильно зависят от кэша категорий
-        await AsyncStorage.setItem("categories", JSON.stringify(updatedCategories)); // Предполагаем, что у вас есть кэш для категорий
+        await AsyncStorage.setItem(CATEGORIES_KEY, JSON.stringify(updatedCategories));
     } catch (error) {
         console.error("Error deleting category:", error);
         throw error;
     }
 };
 
-// ОБНОВЛЕНИЕ: Измените fetchCategories, чтобы он сортировал по order_index
 export const fetchCategories = async (): Promise<Category[]> => {
     try {
         const { data, error } = await supabase
             .from("categories")
-            .select("id, name, color, icon, order_index") // Убедитесь, что выбираете order_index
-            .order("order_index", { ascending: true }); // Сортируем по order_index
+            .select("id, name, color, icon, order_index, created_at, updated_at")
+            .order("order_index", { ascending: true });
 
         if (error) {
             console.error("Error fetching categories from DB:", error);
@@ -112,13 +102,15 @@ export const fetchCategories = async (): Promise<Category[]> => {
             name: category.name,
             color: category.color,
             icon: category.icon,
-            order_index: category.order_index
+            order_index: category.order_index,
+            created_at: category.created_at,
+            updated_at: category.updated_at,
         })) as Category[];
-        await AsyncStorage.setItem("categories", JSON.stringify(categories));
+        await AsyncStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
         return categories;
     } catch (error) {
         console.error("Failed to fetch categories:", error);
-        const cachedCategories = await AsyncStorage.getItem("categories");
+        const cachedCategories = await AsyncStorage.getItem(CATEGORIES_KEY);
         if (cachedCategories) {
             console.log("Returning cached categories.");
             return JSON.parse(cachedCategories);
@@ -127,9 +119,48 @@ export const fetchCategories = async (): Promise<Category[]> => {
     }
 };
 
-// Получение привычек с категориями
+export const addCategory = async (category: Omit<Category, "id" | "created_at" | "updated_at" | "order_index">): Promise<Category> => {
+    const { data: maxOrderData, error: maxOrderError } = await supabase
+        .from('categories')
+        .select('order_index')
+        .order('order_index', { ascending: false })
+        .limit(1);
+
+    if (maxOrderError) throw maxOrderError;
+
+    const nextOrderIndex = (maxOrderData && maxOrderData.length > 0 && maxOrderData[0].order_index !== null)
+        ? maxOrderData[0].order_index + 1
+        : 0;
+
+    const { data, error } = await supabase
+        .from("categories")
+        .insert({
+            name: category.name,
+            icon: category.icon,
+            color: category.color,
+            order_index: nextOrderIndex,
+        })
+        .select()
+        .single();
+
+    if (error || !data) throw error || new Error("Failed to add category");
+
+    const updatedCategories = await fetchCategories();
+    await AsyncStorage.setItem(CATEGORIES_KEY, JSON.stringify(updatedCategories));
+
+    return data;
+};
+
+// --- ФУНКЦИИ ДЛЯ ПРИВЫЧЕК ---
+
 export const fetchHabits = async (): Promise<Habit[]> => {
     try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            console.warn("User not authenticated for fetching habits.");
+            return [];
+        }
+
         const { data: habits, error: habitError } = await supabase
             .from("habits")
             .select(`
@@ -142,22 +173,24 @@ export const fetchHabits = async (): Promise<Habit[]> => {
                         icon,
                         color,
                         created_at,
-                        updated_at
+                        updated_at,
+                        order_index
                     )
                 )
             `)
-            .eq("user_id", (await supabase.auth.getSession()).data.session?.user.id)
-            .order("order_index", { ascending: true }) // ДОБАВЛЕНО: Сортируем по order_index
-            .order("created_at", { ascending: false }); // Дополнительная сортировка, если order_index одинаковый
+            .eq("user_id", user.id)
+            .order("order_index", { ascending: true })
+            .order("created_at", { ascending: false });
 
         if (habitError) throw habitError;
 
-        // Преобразуем данные, чтобы категории были в поле categories
         const transformedHabits = habits?.map((habit: any) => ({
             ...habit,
             categories: habit.habit_categories.map((hc: any) => hc.categories).filter(Boolean),
-            // Убеждаемся, что target_completions всегда является числом, по умолчанию 1
             target_completions: habit.target_completions === null ? 1 : Number(habit.target_completions),
+            goal_series: habit.goal_series === null ? 1 : Number(habit.goal_series),
+            progress: Number(habit.progress),
+            frequency: habit.frequency || '', // Убедимся, что frequency всегда строка
         })) || [];
 
         await AsyncStorage.setItem(HABITS_KEY, JSON.stringify(transformedHabits));
@@ -165,25 +198,22 @@ export const fetchHabits = async (): Promise<Habit[]> => {
     } catch (error) {
         console.error("Error fetching habits:", error);
         const localHabits = await AsyncStorage.getItem(HABITS_KEY);
-        // Возвращаем пустой массив, если локальные привычки не найдены
         return localHabits ? JSON.parse(localHabits) : [];
     }
 };
 
-// Добавление новой привычки с категориями
 export const addHabit = async (
-    habit: Omit<Habit, "id" | "user_id" | "created_at" | "updated_at" | "categories" | "order_index">, // Исключаем order_index
+    habitData: Omit<Habit, "id" | "user_id" | "created_at" | "updated_at" | "categories" | "order_index">,
     categoryIds: string[] = []
 ): Promise<void> => {
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("User not authenticated");
 
-        // Получаем максимальный order_index для текущего пользователя, чтобы новая привычка была в конце
         const { data: maxOrderData, error: maxOrderError } = await supabase
             .from('habits')
             .select('order_index')
-            .eq("user_id", user.id) // Убедитесь, что запрос учитывает пользователя
+            .eq("user_id", user.id)
             .order('order_index', { ascending: false })
             .limit(1);
 
@@ -191,27 +221,26 @@ export const addHabit = async (
 
         const nextOrderIndex = (maxOrderData && maxOrderData.length > 0 && maxOrderData[0].order_index !== null)
             ? maxOrderData[0].order_index + 1
-            : 0; // Начинаем с 0, если привычек нет или order_index null
+            : 0;
 
         const { data: newHabit, error: habitError } = await supabase
             .from("habits")
             .insert({
                 user_id: user.id,
-                name: habit.name,
-                description: habit.description,
-                frequency: habit.frequency,
-                progress: habit.progress,
-                goal_series: habit.goal_series,
-                icon: habit.icon,
-                target_completions: habit.target_completions,
-                order_index: nextOrderIndex, // Присваиваем order_index
+                name: habitData.name,
+                description: habitData.description,
+                frequency: habitData.frequency,
+                progress: habitData.progress,
+                goal_series: habitData.goal_series,
+                icon: habitData.icon,
+                target_completions: habitData.target_completions,
+                order_index: nextOrderIndex,
             })
             .select()
             .single();
 
         if (habitError || !newHabit) throw habitError;
 
-        // Добавляем связи с категориями
         if (categoryIds.length > 0) {
             const relations = categoryIds.map((categoryId) => ({
                 habit_id: newHabit.id,
@@ -221,7 +250,6 @@ export const addHabit = async (
             if (relationError) throw relationError;
         }
 
-        // Обновляем локальный кэш после добавления
         const updatedHabits = await fetchHabits();
         await AsyncStorage.setItem(HABITS_KEY, JSON.stringify(updatedHabits));
     } catch (error) {
@@ -230,31 +258,27 @@ export const addHabit = async (
     }
 };
 
-// Обновление привычки
-export const updateHabit = async (id: string, updatedHabit: Partial<Habit>, categoryIds?: string[]): Promise<void> => {
+export const updateHabit = async (id: string, updatedFields: Partial<Habit>, categoryIds?: string[]): Promise<void> => {
     try {
         const { error: habitError } = await supabase
             .from("habits")
             .update({
-                name: updatedHabit.name,
-                description: updatedHabit.description,
-                frequency: updatedHabit.frequency,
-                progress: updatedHabit.progress,
-                goal_series: updatedHabit.goal_series,
-                icon: updatedHabit.icon,
-                target_completions: updatedHabit.target_completions,
+                name: updatedFields.name,
+                description: updatedFields.description,
+                frequency: updatedFields.frequency,
+                progress: updatedFields.progress,
+                goal_series: updatedFields.goal_series,
+                icon: updatedFields.icon,
+                target_completions: updatedFields.target_completions,
                 updated_at: new Date().toISOString(),
-                // order_index не обновляем здесь, так как для этого есть отдельная функция
             })
             .eq("id", id);
 
         if (habitError) throw habitError;
 
-        // Обновляем связи с категориями, если они переданы
-        if (categoryIds !== undefined) { // Проверяем, что categoryIds был передан
-            // Удаляем старые связи
+        if (categoryIds !== undefined) {
+            // Удаляем все текущие связи, затем добавляем новые
             await supabase.from("habit_categories").delete().eq("habit_id", id);
-            // Добавляем новые связи
             if (categoryIds.length > 0) {
                 const relations = categoryIds.map((categoryId) => ({
                     habit_id: id,
@@ -265,7 +289,6 @@ export const updateHabit = async (id: string, updatedHabit: Partial<Habit>, cate
             }
         }
 
-        // Обновляем локальный кэш после обновления
         const updatedHabits = await fetchHabits();
         await AsyncStorage.setItem(HABITS_KEY, JSON.stringify(updatedHabits));
     } catch (error) {
@@ -274,21 +297,21 @@ export const updateHabit = async (id: string, updatedHabit: Partial<Habit>, cate
     }
 };
 
-// Удаление привычки
 export const deleteHabit = async (id: string): Promise<void> => {
     try {
-        const { error } = await supabase.from("habits").delete().eq("id", id);
-        if (error) throw error;
-
-        // Также удаляем связанные записи из habit_categories
+        // Удаляем сначала связи привычки с категориями
         const { error: relationError } = await supabase
             .from("habit_categories")
             .delete()
             .eq("habit_id", id);
         if (relationError) {
             console.error("Error deleting habit categories relations:", relationError);
-            // Можно проигнорировать эту ошибку, если привычка все равно удалилась
         }
+
+        // Затем удаляем саму привычку
+        const { error } = await supabase.from("habits").delete().eq("id", id);
+        if (error) throw error;
+
 
         const updatedHabits = await fetchHabits();
         await AsyncStorage.setItem(HABITS_KEY, JSON.stringify(updatedHabits));
@@ -298,51 +321,13 @@ export const deleteHabit = async (id: string): Promise<void> => {
     }
 };
 
-// Добавление новой категории
-export const addCategory = async (category: Omit<Category, "id" | "created_at" | "updated_at" | "order_index">): Promise<Category> => {
-    // Получаем максимальный order_index для категорий, чтобы новая категория была в конце
-    const { data: maxOrderData, error: maxOrderError } = await supabase
-        .from('categories')
-        .select('order_index')
-        .order('order_index', { ascending: false })
-        .limit(1);
-
-    if (maxOrderError) throw maxOrderError;
-
-    const nextOrderIndex = (maxOrderData && maxOrderData.length > 0 && maxOrderData[0].order_index !== null)
-        ? maxOrderData[0].order_index + 1
-        : 0; // Начинаем с 0, если категорий нет или order_index null
-
-
-    const { data, error } = await supabase
-        .from("categories")
-        .insert({
-            name: category.name,
-            icon: category.icon,
-            color: category.color,
-            order_index: nextOrderIndex, // Присваиваем order_index
-        })
-        .select()
-        .single();
-
-    if (error || !data) throw error || new Error("Failed to add category");
-
-    // После добавления новой категории, обновите локальный кэш категорий
-    const updatedCategories = await fetchCategories();
-    await AsyncStorage.setItem("categories", JSON.stringify(updatedCategories));
-
-    return data;
-};
-
-
-// НОВАЯ ФУНКЦИЯ: Обновление порядка привычек
 export const updateHabitOrder = async (habits: Habit[]): Promise<void> => {
     try {
         const updatePromises = habits.map(async (habit, index) => {
             const { error } = await supabase
                 .from("habits")
-                .update({ order_index: index }) // Обновляем только order_index
-                .eq("id", habit.id); // Для конкретной привычки по ID
+                .update({ order_index: index })
+                .eq("id", habit.id);
 
             if (error) {
                 console.error(`Error updating habit ${habit.id} order:`, error);
@@ -351,9 +336,7 @@ export const updateHabitOrder = async (habits: Habit[]): Promise<void> => {
         });
 
         await Promise.all(updatePromises);
-
         console.log("Habit order updated successfully.");
-        // После успешного обновления, обновите локальный кэш привычек
         const updatedHabits = await fetchHabits();
         await AsyncStorage.setItem(HABITS_KEY, JSON.stringify(updatedHabits));
 
