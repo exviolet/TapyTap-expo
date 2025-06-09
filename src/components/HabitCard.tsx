@@ -4,22 +4,9 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'; // Уб
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { ThemeContext } from "../../components/ThemeProvider";
-import { Habit, updateHabit } from "../../lib/habits";
-import {
-  Book,
-  Activity,
-  GraduationCap,
-  Briefcase,
-  Music,
-  Coffee,
-  Sun,
-  Moon,
-  Star,
-  Heart,
-  Trash2
-  // Добавьте все иконки, которые используются в ваших привычках и категориях
-} from "lucide-react-native";
+import { ThemeContext } from './ThemeProvider';
+import { Habit } from '../lib/habits';
+import { Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart, Trash2 } from "lucide-react-native"; // Импортируем все необходимые иконки
 
 type RootStackParamList = {
     Habits: undefined;
@@ -57,11 +44,8 @@ export default function HabitCard({ habit, onUpdateProgress, onDeleteHabit }: Ha
     const progressWidth = useSharedValue(0);
     const scale = useSharedValue(1); // Для анимации нажатия карточки
 
-    // ИСПРАВЛЕНИЕ 1: Безопасное парсинг goal_series
-    let goalSeries = parseInt(habit.goal_series || "1", 10);
-    if (isNaN(goalSeries) || goalSeries <= 0) {
-        goalSeries = 1; // Устанавливаем минимальное значение 1
-    }
+    // ИСПРАВЛЕНИЕ: Используем habit.target_completions
+    const targetCompletions = habit.target_completions || 1; // Убедимся, что не 0 или undefined
     const currentProgress = habit.progress;
 
     // Анимированный стиль для прогресс-бара
@@ -80,11 +64,12 @@ export default function HabitCard({ habit, onUpdateProgress, onDeleteHabit }: Ha
 
     // Обновляем progressWidth при изменении currentProgress или goalSeries
     useEffect(() => {
-        const targetPercentage = (currentProgress / goalSeries) * 100;
+        // Вычисляем процент от target_completions
+        const targetPercentage = (currentProgress / targetCompletions) * 100;
         const clampedPercentage = Math.min(100, Math.max(0, targetPercentage));
-        console.log(`Habit: ${habit.name}, Progress: ${currentProgress}, Goal: ${goalSeries}, Target %: ${clampedPercentage}`); // Для отладки
-        progressWidth.value = withTiming(clampedPercentage, { duration: 700 });
-    }, [currentProgress, goalSeries, progressWidth]);
+        console.log(`Habit: ${habit.name}, Progress: ${currentProgress}, Goal: ${targetCompletions}, Target %: ${clampedPercentage}`);
+        progressWidth.value = withTiming(clampedPercentage, { duration: 400 }); // Убрал плавность, как вы просили
+    }, [currentProgress, targetCompletions, progressWidth]); // Обновите зависимости useEffect
 
     const handlePressIn = () => {
         scale.value = withSpring(0.95);
@@ -145,7 +130,7 @@ export default function HabitCard({ habit, onUpdateProgress, onDeleteHabit }: Ha
                             />
                         </View>
                         <View style={styles.progressRow}>
-                            <Text style={styles.progressCounterText}>{currentProgress} / {goalSeries} в день</Text>
+                                <Text style={styles.progressCounterText}>{currentProgress} / {targetCompletions} в день</Text>
                             <View style={styles.progressButtons}>
                                 <TouchableOpacity
                                     onPress={() => onUpdateProgress(habit.id, Math.max(0, currentProgress - 1))}
@@ -160,7 +145,7 @@ export default function HabitCard({ habit, onUpdateProgress, onDeleteHabit }: Ha
                                     <Text style={styles.progressButtonText}>+1</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    onPress={() => onUpdateProgress(habit.id, goalSeries)}
+                                    onPress={() => onUpdateProgress(habit.id, targetCompletions)}
                                     style={[styles.progressButton, styles.completeButton]}
                                 >
                                     <Text style={styles.progressButtonText}>✓</Text>
@@ -178,7 +163,7 @@ const styles = StyleSheet.create({
     cardWrapper: {
         marginHorizontal: 16,
         marginVertical: 8,
-        borderRadius: 20,
+        borderRadius: 12,
         overflow: 'hidden',
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 8 },

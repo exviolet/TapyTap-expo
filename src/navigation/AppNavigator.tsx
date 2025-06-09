@@ -3,7 +3,7 @@ import React, { useState, useEffect, useContext } from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import { NavigationContainer } from "@react-navigation/native";
-import Icon from "react-native-vector-icons/MaterialIcons";
+import * as LucideIcons from "lucide-react-native";
 import { supabase } from "../supabase/supabaseClient";
 import { ThemeContext } from "../components/ThemeProvider";
 import WelcomeScreen from "../screens/WelcomeScreen";
@@ -15,23 +15,28 @@ import SettingsScreen from "../screens/SettingsScreen";
 import AddHabitScreen from "../screens/AddHabitScreen";
 import EditHabitScreen from "../screens/EditHabitScreen";
 import ArchivedHabitsScreen from "../screens/ArchivedHabitsScreen";
+import SortCategoriesScreen from "../screens/SortCategoriesScreen"; 
+import SortHabitsScreen from "../screens/SortHabitsScreen"; // ИМПОРТИРУЙТЕ НОВЫЙ ЭКРАН
+import { GestureHandlerRootView } from "react-native-gesture-handler"; // ДОБАВЛЕН ИМПОРТ
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 function HabitsStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Habits" component={HabitsScreen} options={{ title: "Привычки" }} />
-      <Stack.Screen name="AddHabit" component={AddHabitScreen} options={{ title: "Добавить привычку" }} />
-      <Stack.Screen name="EditHabit" component={EditHabitScreen} options={{ title: "Редактировать привычку" }} />
+      <Stack.Screen name="AddHabit" component={AddHabitScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="EditHabit" component={EditHabitScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="SortCategories" component={SortCategoriesScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="SortHabits" component={SortHabitsScreen} options={{ presentation: 'modal' }} /> 
     </Stack.Navigator>
   );
 }
 
 function SettingsStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Настройки" }} />
       <Stack.Screen name="ArchivedHabits" component={ArchivedHabitsScreen} options={{ title: "Архивные привычки" }} />
     </Stack.Navigator>
@@ -43,17 +48,17 @@ function AppTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        headerShown: false,
+        headerShown: false, 
         tabBarStyle: { backgroundColor: colors.background },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: theme === "light" ? "#666666" : "#CCCCCC",
         tabBarIcon: ({ color, size }) => {
-          let iconName: string;
-          if (route.name === "HabitsStack") iconName = "home";
-          else if (route.name === "Calendar") iconName = "calendar-today";
-          else if (route.name === "SettingsStack") iconName = "settings";
-          else iconName = "help"; // Значение по умолчанию
-          return <Icon name={iconName} size={size} color={color} />;
+          let IconComponent;
+          if (route.name === "HabitsStack") IconComponent = LucideIcons["Home"];
+          else if (route.name === "Calendar") IconComponent = LucideIcons["Calendar"];
+          else if (route.name === "SettingsStack") IconComponent = LucideIcons["Settings"];
+          else IconComponent = LucideIcons["HelpCircle"];
+          return <IconComponent size={size} color={color} strokeWidth={2} />;
         },
       })}
     >
@@ -94,5 +99,12 @@ export default function AppNavigator() {
 
   if (loading) return null;
 
-  return <NavigationContainer>{session && session.user ? <AppTabs /> : <AuthStack />}</NavigationContainer>;
+  // Оборачиваем навигатор в GestureHandlerRootView
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <NavigationContainer>
+        {session && session.user ? <AppTabs /> : <AuthStack />}
+      </NavigationContainer>
+    </GestureHandlerRootView>
+  );
 }

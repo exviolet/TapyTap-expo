@@ -1,5 +1,5 @@
 // src/screens/AddHabitScreen.tsx
-import React, { useState, useContext } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -13,10 +13,36 @@ import {
 } from "react-native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { ThemeContext } from "../components/ThemeProvider";
-import { addHabit } from "../lib/habits";
-import Icon from "react-native-vector-icons/MaterialIcons";
+import { addHabit, addCategory, fetchCategories, Category } from "../lib/habits";
+import {
+  Book,
+  Activity,
+  GraduationCap,
+  Briefcase,
+  Music,
+  Coffee,
+  Sun,
+  Moon,
+  Star,
+  Heart,
+  Check,
+} from "lucide-react-native"; // Импортируем конкретные иконки
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
+
+// Маппинг иконок для выбора
+const iconMap: { [key: string]: React.ComponentType<any> } = {
+  Book,
+  Activity,
+  GraduationCap,
+  Briefcase,
+  Music,
+  Coffee,
+  Sun,
+  Moon,
+  Star,
+  Heart,
+};
 
 type RootStackParamList = {
   Habits: undefined;
@@ -30,24 +56,40 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [goal_series, setGoalSeries] = useState("");
+  const [completionsPerDay, setCompletionsPerDay] = useState(1);
   const [reminderDays, setReminderDays] = useState<string[]>([]);
   const [reminderTime, setReminderTime] = useState(new Date());
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [customCategories, setCustomCategories] = useState<{ id: string; name: string; icon: string; color: string }[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [newCategoryIcon, setNewCategoryIcon] = useState("category");
+  const [newCategoryIcon, setNewCategoryIcon] = useState("Book");
   const [newCategoryColor, setNewCategoryColor] = useState("#6A0DAD");
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [habitIcon, setHabitIcon] = useState("book");
+  const [habitIcon, setHabitIcon] = useState("Book");
   const [loading, setLoading] = useState(false);
 
   const goalOptions = ["Ежедневно", "Неделя", "Месяц"];
   const daysOfWeek = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-  const iconOptions = ["book", "directions_run", "school", "work", "library_music", "fastfood"];
-  const colorOptions = ["#FF6F61", "#6A0DAD", "#00C4B4", "#FFD54F", "#3F51B5", "#E91E63"];
+  const iconOptions = Object.keys(iconMap);
+  const colorOptions = [
+    "#FF6F61", "#6A0DAD", "#00C4B4", "#FFD54F", "#3F51B5", "#E91E63",
+    "#4CAF50", "#F44336", "#2196F3", "#FF9800", "#9C27B0", "#03A9F4",
+  ];
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const fetchedCategories = await fetchCategories();
+        setCategories(fetchedCategories);
+      } catch (error) {
+        console.error("Error loading categories:", error);
+      }
+    };
+    loadCategories();
+  }, []);
 
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
@@ -62,30 +104,35 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
     scale.value = withSpring(1);
   };
 
-  const handleAddHabit = async () => {
-    if (!name || !description || !goal_series || reminderDays.length === 0) {
-      Alert.alert("Ошибка", "Заполните все обязательные поля!");
-      return;
+const handleAddHabit = async () => {
+    if (!name || !goal_series || reminderDays.length === 0) {
+        Alert.alert("Ошибка", "Заполните обязательные поля: Название, Цель серий и Напоминания!");
+        return;
     }
-  
+
     setLoading(true);
     try {
-      await addHabit({
-        name,
-        description,
-        category: selectedCategories.join(", "),
-        frequency: { days: reminderDays.join(", "), time: reminderTime.toLocaleTimeString() },
-        progress: 0,
-        goal_series: goal_series,
-        icon: habitIcon,
-      });
-      navigation.goBack();
+        await addHabit(
+            {
+                name,
+                description,
+                frequency: { days: reminderDays.join(", "), time: reminderTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) },
+                progress: 0,
+                goal_series,
+                icon: habitIcon,
+                // Добавьте это новое поле
+                target_completions: completionsPerDay, // <--- ВОТ ЧТО НУЖНО ДОБАВИТЬ
+            },
+            selectedCategories
+        );
+        navigation.goBack();
     } catch (error) {
-      Alert.alert("Ошибка", "Не удалось добавить привычку");
+        console.error("Error adding habit:", error); // Логируйте ошибку для отладки
+        Alert.alert("Ошибка", "Не удалось добавить привычку");
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+};
 
   const toggleDay = (day: string) => {
     setReminderDays((prev) =>
@@ -93,14 +140,24 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
     );
   };
 
-  const addCategory = () => {
-    if (newCategoryName && newCategoryIcon && newCategoryColor) {
-      const newCategory = { id: Date.now().toString(), name: newCategoryName, icon: newCategoryIcon, color: newCategoryColor };
-      setCustomCategories([...customCategories, newCategory]);
+  const addNewCategory = async () => {
+    if (!newCategoryName) {
+      Alert.alert("Ошибка", "Введите название категории");
+      return;
+    }
+
+    try {
+      const newCategory = await addCategory({
+        name: newCategoryName,
+        icon: newCategoryIcon,
+        color: newCategoryColor,
+      });
+      setCategories([...categories, newCategory]);
       setNewCategoryName("");
-      setNewCategoryIcon("category");
+      setNewCategoryIcon("Book");
       setNewCategoryColor("#6A0DAD");
-      setShowCategoryModal(false);
+    } catch (error) {
+      Alert.alert("Ошибка", "Не удалось добавить категорию");
     }
   };
 
@@ -125,7 +182,7 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
         />
         <TextInput
           style={[styles.input, { height: 100 }]}
-          placeholder="Описание"
+          placeholder="Описание (необязательно)"
           placeholderTextColor="#A0A0C0"
           value={description}
           onChangeText={setDescription}
@@ -138,21 +195,44 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
             data={iconOptions}
             horizontal
             keyExtractor={(item) => item}
-            renderItem={({ item }) => (
-              <Animated.View style={habitIcon === item ? styles.selectedIcon : undefined}>
-                <TouchableOpacity onPress={() => setHabitIcon(item)} style={styles.iconButton}>
-                  <Icon name={item} size={28} color={habitIcon === item ? colors.accent : "#A0A0C0"} />
-                </TouchableOpacity>
-              </Animated.View>
-            )}
+            renderItem={({ item }) => {
+              const LucideIcon = iconMap[item];
+              return (
+                <Animated.View style={habitIcon === item ? styles.selectedIcon : undefined}>
+                  <TouchableOpacity onPress={() => setHabitIcon(item)} style={styles.iconButton}>
+                    <LucideIcon size={28} color={habitIcon === item ? colors.accent : "#A0A0C0"} strokeWidth={2} />
+                  </TouchableOpacity>
+                </Animated.View>
+              );
+            }}
             style={styles.iconList}
           />
         </View>
 
         <Text style={styles.sectionHeader}>Цель серий</Text>
-        <TouchableOpacity style={styles.optionButton} onPress={() => setShowGoalModal(true)}>
-          <Text style={styles.optionText}>Цель серий: {goal_series || "Выберите"}</Text>
-        </TouchableOpacity>
+        <View style={styles.rowContainer}>
+          <TouchableOpacity style={[styles.optionButton, { flex: 1, marginRight: 8 }]} onPress={() => setShowGoalModal(true)}>
+            <Text style={styles.optionText}>Цель серий: {goal_series || "Выберите"}</Text>
+          </TouchableOpacity>
+          <View style={[styles.optionButton, { flex: 1, marginLeft: 8 }]}>
+            <Text style={styles.optionText}>Выполнений в день:</Text>
+            <View style={styles.completionsContainer}>
+              <TouchableOpacity 
+                style={styles.completionButton} 
+                onPress={() => setCompletionsPerDay(prev => Math.max(1, prev - 1))}
+              >
+                <Text style={styles.completionButtonText}>-</Text>
+              </TouchableOpacity>
+              <Text style={styles.completionText}>{completionsPerDay}</Text>
+              <TouchableOpacity 
+                style={styles.completionButton} 
+                onPress={() => setCompletionsPerDay(prev => prev + 1)}
+              >
+                <Text style={styles.completionButtonText}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
         <Modal visible={showGoalModal} transparent animationType="fade">
           <Animated.View style={[styles.modalOverlay, animatedStyle]}>
             <View style={styles.modalContent}>
@@ -178,10 +258,10 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
           </Animated.View>
         </Modal>
 
-        <Text style={styles.sectionHeader}>Категории</Text>
+        <Text style={styles.sectionHeader}>Категории (необязательно)</Text>
         <TouchableOpacity style={styles.optionButton} onPress={() => setShowCategoryModal(true)}>
           <Text style={styles.optionText}>
-            Категории: {selectedCategories.length > 0 ? selectedCategories.map((id) => customCategories.find((c) => c.id === id)?.name).join(", ") : "Выберите"}
+            Категории: {selectedCategories.length > 0 ? selectedCategories.map((id) => categories.find((c) => c.id === id)?.name).join(", ") : "Выберите"}
           </Text>
         </TouchableOpacity>
         <Modal visible={showCategoryModal} transparent animationType="fade">
@@ -200,13 +280,16 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
                 data={iconOptions}
                 horizontal
                 keyExtractor={(item) => item}
-                renderItem={({ item }) => (
-                  <Animated.View style={newCategoryIcon === item ? styles.selectedIcon : undefined}>
-                    <TouchableOpacity onPress={() => setNewCategoryIcon(item)} style={styles.iconButton}>
-                      <Icon name={item} size={24} color={newCategoryIcon === item ? colors.accent : "#A0A0C0"} />
-                    </TouchableOpacity>
-                  </Animated.View>
-                )}
+                renderItem={({ item }) => {
+                  const LucideIcon = iconMap[item];
+                  return (
+                    <Animated.View style={newCategoryIcon === item ? styles.selectedIcon : undefined}>
+                      <TouchableOpacity onPress={() => setNewCategoryIcon(item)} style={styles.iconButton}>
+                        <LucideIcon size={24} color={newCategoryIcon === item ? colors.accent : "#A0A0C0"} strokeWidth={2} />
+                      </TouchableOpacity>
+                    </Animated.View>
+                  );
+                }}
                 style={styles.iconList}
               />
               <Text style={styles.label}>Цвет категории:</Text>
@@ -215,27 +298,37 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
                 horizontal
                 keyExtractor={(item) => item}
                 renderItem={({ item }) => (
-                  <TouchableOpacity onPress={() => setNewCategoryColor(item)} style={[styles.colorButton, { backgroundColor: item }]}> 
-                    {newCategoryColor === item && <Icon name="check" size={16} color="#FFFFFF" />}
+                  <TouchableOpacity onPress={() => setNewCategoryColor(item)} style={[styles.colorButton, { backgroundColor: item }]}>
+                    {newCategoryColor === item && <Check size={16} color="#FFFFFF" strokeWidth={2} />}
                   </TouchableOpacity>
                 )}
                 style={styles.colorList}
               />
-              <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={addCategory}>
+              <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={addNewCategory}>
                 <View style={styles.modalButton}>
                   <Text style={styles.modalButtonText}>Добавить категорию</Text>
                 </View>
               </Pressable>
               <FlatList
-                data={customCategories}
+                data={categories}
                 keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity onPress={() => toggleCategory(item.id)} style={[styles.categoryItem, selectedCategories.includes(item.id) && styles.selectedCategoryItem]}>
-                    <View style={[styles.categoryIndicator, { backgroundColor: item.color }]} />
-                    <Icon name={item.icon} size={18} color={selectedCategories.includes(item.id) ? colors.accent : "#A0A0C0"} />
-                    <Text style={styles.categoryText}>{item.name}</Text>
-                  </TouchableOpacity>
-                )}
+                renderItem={({ item }) => {
+                  const LucideIcon = iconMap[item.icon] || iconMap["Book"]; // Fallback на "Book", если иконка не найдена
+                  return (
+                    <TouchableOpacity
+                      onPress={() => toggleCategory(item.id)}
+                      style={[styles.categoryItem, selectedCategories.includes(item.id) && styles.selectedCategoryItem]}
+                    >
+                      <View style={[styles.categoryIndicator, { backgroundColor: selectedCategories.includes(item.id) ? "#FFFFFF" : item.color }]} />
+                      <LucideIcon
+                        size={18}
+                        color={selectedCategories.includes(item.id) ? item.color : "#A0A0C0"}
+                        strokeWidth={2}
+                      />
+                      <Text style={[styles.categoryText, selectedCategories.includes(item.id) && { color: item.color }]}>{item.name}</Text>
+                    </TouchableOpacity>
+                  );
+                }}
               />
               <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={() => setShowCategoryModal(false)}>
                 <View style={styles.modalButtonSecondary}>
@@ -249,7 +342,7 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
         <Text style={styles.sectionHeader}>Напоминания</Text>
         <TouchableOpacity style={styles.optionButton} onPress={() => setShowReminderModal(true)}>
           <Text style={styles.optionText}>
-            Напоминания: {reminderDays.length > 0 ? `${reminderDays.join(", ")} в ${reminderTime.toLocaleTimeString()}` : "Выберите"}
+            Напоминания: {reminderDays.length > 0 ? `${reminderDays.join(", ")} в ${reminderTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Выберите"}
           </Text>
         </TouchableOpacity>
         <Modal visible={showReminderModal} transparent animationType="fade">
@@ -258,7 +351,7 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
               <Text style={styles.modalHeader}>Выберите дни и время</Text>
               <FlatList
                 data={daysOfWeek}
-                numColumns={4}
+                horizontal
                 keyExtractor={(item) => item}
                 renderItem={({ item }) => (
                   <Animated.View style={reminderDays.includes(item) ? styles.selectedDay : undefined}>
@@ -267,20 +360,27 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
                     </TouchableOpacity>
                   </Animated.View>
                 )}
+                contentContainerStyle={{ paddingHorizontal: 8 }}
               />
               <TouchableOpacity style={styles.optionButton} onPress={() => setShowTimePicker(true)}>
-                <Text style={styles.optionText}>Выберите время: {reminderTime.toLocaleTimeString()}</Text>
+                <Text style={styles.optionText}>Выберите время: {reminderTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
               </TouchableOpacity>
               {showTimePicker && (
-                <DateTimePicker
-                  value={reminderTime}
-                  mode="time"
-                  display="default"
-                  onChange={(event: any, selectedTime: Date | undefined) => {
-                    setShowTimePicker(false);
-                    if (selectedTime) setReminderTime(selectedTime);
-                  }}
-                />
+                <View style={styles.timePickerContainer}>
+                  <DateTimePicker
+                    value={reminderTime}
+                    mode="time"
+                    display="spinner"
+                    onChange={(event: any, selectedTime: Date | undefined) => {
+                      setShowTimePicker(false);
+                      if (selectedTime) setReminderTime(selectedTime);
+                    }}
+                    textColor="#FFFFFF"
+                  />
+                  <TouchableOpacity onPress={() => setShowTimePicker(false)} style={styles.timePickerButton}>
+                    <Text style={styles.timePickerButtonText}>Подтвердить</Text>
+                  </TouchableOpacity>
+                </View>
               )}
               <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={() => setShowReminderModal(false)}>
                 <View style={styles.modalButtonSecondary}>
@@ -292,7 +392,7 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
         </Modal>
 
         <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={handleAddHabit} disabled={loading}>
-          <View style={[styles.addButton, loading && { opacity: 0.7 }]}> 
+          <View style={[styles.addButton, loading && { opacity: 0.7 }]}>
             <Text style={styles.addButtonText}>{loading ? "Добавление..." : "Добавить"}</Text>
           </View>
         </Pressable>
@@ -301,6 +401,7 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
   );
 };
 
+// Стили остаются без изменений
 const styles = {
   container: {
     flex: 1,
@@ -311,19 +412,19 @@ const styles = {
     paddingBottom: 40,
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "600" as const,
     color: "#FFFFFF",
     textAlign: "center" as const,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   input: {
     backgroundColor: "#2A2A3E",
     color: "#FFFFFF",
-    padding: 12,
+    padding: 10,
     borderRadius: 8,
     marginBottom: 16,
-    fontSize: 16,
+    fontSize: 14,
     borderWidth: 1,
     borderColor: "#3A3A5C",
   },
@@ -353,7 +454,7 @@ const styles = {
     borderColor: "#3A3A5C",
   },
   optionText: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#FFFFFF",
   },
   modalOverlay: {
@@ -444,7 +545,7 @@ const styles = {
     fontWeight: "600" as const,
   },
   sectionHeader: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600" as const,
     color: "#FFFFFF",
     marginBottom: 8,
@@ -474,10 +575,62 @@ const styles = {
     alignItems: "center" as const,
   },
   selectedCategoryItem: {
+    display: "flex" as const,
+    gap: 2,
+    borderRadius: 8,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
+    padding: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#3A3A5C",
   },
   selectedDay: {
     backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  timePickerContainer: {
+    backgroundColor: "#2A2A3E",
+    borderRadius: 8,
+    padding: 8,
+    marginVertical: 8,
+    alignItems: "center" as const,
+  },
+  timePickerButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#6A0DAD",
+    marginTop: 8,
+  },
+  timePickerButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+  },
+  rowContainer: {
+    flexDirection: 'row' as const,
+    marginBottom: 16,
+  },
+  completionsContainer: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    marginTop: 8,
+  },
+  completionButton: {
+    backgroundColor: '#6A0DAD',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  completionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '600' as const,
+  },
+  completionText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginHorizontal: 16,
   },
 };
 
