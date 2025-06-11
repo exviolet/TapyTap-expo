@@ -6,7 +6,8 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import { ThemeContext } from "../components/ThemeProvider";
 import { Habit, fetchHabits, deleteHabit, updateHabit, fetchCategories, deleteCategory, Category } from "../lib/habits";
 import Animated, { FadeIn, FadeOut, useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS} from "react-native-reanimated";
-import { Swipeable, GestureHandlerRootView } from "react-native-gesture-handler"; // Убедитесь, что импортировано
+import { Swipeable } from "react-native-gesture-handler"; // GestureHandlerRootView должна быть выше в AppNavigator
+import ModeToggle from '../components/ModeToggle'; // <--- Убедитесь, что это импортировано
 import {
     Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart, Check,
     Lightbulb, Bell, Archive, PlusCircle, MinusCircle, X, Clock, // Добавим новые иконки для UI
@@ -20,8 +21,8 @@ type RootStackParamList = {
     Habits: undefined;
     AddHabit: undefined;
     EditHabit: { habit: Habit };
-    SortCategories: undefined; // Добавляем новый экран
-    SortHabits: { categoryId: string; categoryName: string }; // ДОБАВЛЕНО
+    SortCategories: undefined;
+    SortHabits: { categoryId: string; categoryName: string };
 };
 
 type NavigationProp = StackNavigationProp<RootStackParamList, "Habits">;
@@ -32,7 +33,7 @@ const iconMap: { [key: string]: React.ComponentType<any> } = {
 };
 
 export default function HabitsScreen() {
-    const { colors = { background: "#1A1A2E", text: "#FFFFFF", accent: "#6A0DAD", inputBackground: "#2A2A3E", inputBorder: "#3A3A5C" } } = useContext(ThemeContext);
+    const { colors, theme } = useContext(ThemeContext); // Получаем также `theme` из контекста
     const navigation = useNavigation<NavigationProp>();
     const [habits, setHabits] = useState<Habit[]>([]);
     const [filteredHabits, setFilteredHabits] = useState<Habit[]>([]);
@@ -44,11 +45,11 @@ export default function HabitsScreen() {
     const [showCategoryMenu, setShowCategoryMenu] = useState(false);
 
     // Анимации для кнопок
-    const addButtonScale = useSharedValue(1); // Для кнопки "+"
-    const deleteButtonScale = useSharedValue(1); // Для кнопки "Удалить" в модальном окне
-    const sortButtonScale = useSharedValue(1); // Для кнопки "Перемещать категории" в модальном окне
-    const cancelButtonScale = useSharedValue(1); // Для кнопки "Отмена" в модальном окне
-    const sortHabitsButtonScale = useSharedValue(1); // Для кнопки "Сортировать привычки"
+    const addButtonScale = useSharedValue(1);
+    const deleteButtonScale = useSharedValue(1);
+    const sortButtonScale = useSharedValue(1);
+    const cancelButtonScale = useSharedValue(1);
+    const sortHabitsButtonScale = useSharedValue(1);
 
     const animatedAddButtonStyle = useAnimatedStyle(() => ({
         transform: [{ scale: addButtonScale.value }],
@@ -94,7 +95,7 @@ export default function HabitsScreen() {
                 { id: "Без категории", name: "Без категории", color: colors.text, icon: 'X' },
             ];
             setCategories([...allAndNoCategory, ...fetchedCategories] as Category[]);
-            
+             
             if (!fetchedCategories.some(cat => cat.id === selectedCategory) && selectedCategory !== "All" && selectedCategory !== "Без категории") {
                 setSelectedCategory("All");
             }
@@ -168,7 +169,7 @@ export default function HabitsScreen() {
     const renderRightActions = (habitId: string) => {
         return (
             <TouchableOpacity
-                style={[styles.swipeAction, styles.deleteButton]} // Добавляем swipeAction
+                style={[styles.swipeAction, styles.deleteButton]}
                 onPress={() => handleDeleteHabit(habitId)}
             >
                 <Trash2 size={24} color="#FFFFFF" strokeWidth={2} />
@@ -180,13 +181,10 @@ export default function HabitsScreen() {
     const renderLeftActions = (habit: Habit) => {
         return (
             <TouchableOpacity
-                style={[styles.swipeAction, styles.sortButton]} // Добавляем swipeAction
-                // Здесь будет логика для перехода на экран сортировки
+                style={[styles.swipeAction, styles.sortButton]}
                 onPress={() => {
-                    // Переходим на экран сортировки для текущей выбранной категории
-                    // или для "Всех" / "Без категории"
                     navigation.navigate("SortHabits", { 
-                        categoryId: selectedCategory, // Использовать selectedCategory, чтобы сортировать то, что сейчас показывается
+                        categoryId: selectedCategory,
                         categoryName: categories.find(cat => cat.id === selectedCategory)?.name || "Все привычки"
                     });
                 }}
@@ -202,9 +200,9 @@ export default function HabitsScreen() {
         return (
             <Swipeable
                 renderRightActions={() => renderRightActions(item.id)}
-                renderLeftActions={() => renderLeftActions(item)} // Добавляем рендеринг левой стороны
+                renderLeftActions={() => renderLeftActions(item)}
                 overshootRight={false}
-                overshootLeft={false} // Отключаем "перелёт" влево
+                overshootLeft={false}
                 containerStyle={styles.swipeableContainer}
             >
                 <HabitCard
@@ -253,13 +251,13 @@ export default function HabitsScreen() {
     };
 
     const handleSortCategories = () => {
-        setShowCategoryMenu(false); // Закрываем текущее меню
-        navigation.navigate("SortCategories"); // Навигация на новый экран
+        setShowCategoryMenu(false);
+        navigation.navigate("SortCategories");
     };
 
     const handleSortHabits = () => {
-        if (!selectedCategoryForMenu) return; // Не должно произойти, но для безопасности
-        setShowCategoryMenu(false); // Закрываем текущее меню
+        if (!selectedCategoryForMenu) return;
+        setShowCategoryMenu(false);
 
         navigation.navigate("SortHabits", { 
             categoryId: selectedCategoryForMenu.id,
@@ -304,6 +302,37 @@ export default function HabitsScreen() {
         );
     };
 
+    // Устанавливаем опции заголовка, включая кнопку переключения темы
+    useEffect(() => {
+        navigation.setOptions({
+            headerShown: true, // Показываем заголовок
+            title: "Мои привычки", // Заголовок экрана
+            headerStyle: {
+                backgroundColor: colors.background, // Цвет фона заголовка
+                shadowColor: 'transparent', // Убираем тень под заголовком
+                elevation: 0,
+            },
+            headerTintColor: colors.text, // Цвет текста заголовка
+            headerTitleStyle: {
+                fontWeight: 'bold',
+            },
+            // Правая часть заголовка: кнопка переключения темы и кнопка добавления привычки
+            headerRight: () => (
+                <View style={styles.headerRightContainer}>
+                    <ModeToggle /> {/* <--- КОМПОНЕНТ ПЕРЕКЛЮЧЕНИЯ ТЕМЫ */}
+                    <TouchableOpacity
+                        onPressIn={handleAddPressIn}
+                        onPressOut={handleAddPressOut}
+                        onPress={() => navigation.navigate("AddHabit")}
+                        style={[styles.addButtonTop, { backgroundColor: colors.accent }]}
+                    >
+                        <Animated.Text style={[styles.addButtonText, animatedAddButtonStyle]}>+</Animated.Text>
+                    </TouchableOpacity>
+                </View>
+            ),
+        });
+    }, [navigation, colors, handleAddPressIn, handleAddPressOut]); // Зависимости: навигация, цвета, и функции анимации кнопки
+
     if (isLoading) {
         return (
             <View style={[styles.container, styles.centerContent, { backgroundColor: colors.background }]}>
@@ -314,23 +343,12 @@ export default function HabitsScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={styles.headerContainer}>
-                <Text style={[styles.title, { color: colors.text }]}>Мои привычки</Text>
-                <TouchableOpacity
-                    onPressIn={handleAddPressIn} // Изменено
-                    onPressOut={handleAddPressOut} // Изменено
-                    onPress={() => navigation.navigate("AddHabit")}
-                    style={[styles.addButtonTop, { backgroundColor: colors.accent }]}
-                >
-                    <Animated.Text style={[styles.addButtonText, animatedAddButtonStyle]}>+</Animated.Text>
-                </TouchableOpacity>
-            </View>
             <View style={[styles.categoryFilterBar, { backgroundColor: colors.inputBackground }]}>
                 <FlatList
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     data={categories}
-                    renderItem={({ item }) => renderCategory(item)}
+                    renderItem={({ item }) => renderCategory(item)} // Передаем item
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.categoryList}
                 />
@@ -379,10 +397,10 @@ export default function HabitsScreen() {
                         </Pressable>
 
 
-                        {selectedCategoryForMenu && ( // Отображаем эту кнопку только если выбрана реальная категория
+                        {selectedCategoryForMenu && (
                             <Pressable 
-                                onPressIn={handleSortHabitsPressIn} // Добавим анимацию
-                                onPressOut={handleSortHabitsPressOut} // Добавим анимацию
+                                onPressIn={handleSortHabitsPressIn}
+                                onPressOut={handleSortHabitsPressOut}
                                 onPress={handleSortHabits} 
                                 style={{ width: '100%' }}
                             >
@@ -508,33 +526,27 @@ const styles = StyleSheet.create({
     },
     swipeableContainer: {
         marginVertical: 8,
-        borderRadius: 20, // Применяем border radius к контейнеру свайпа
-        overflow: 'hidden', // Обрезаем содержимое, чтобы radius работал
+        borderRadius: 20,
+        overflow: 'hidden',
     },
     swipeAction: {
         justifyContent: "center",
         alignItems: "center",
-        width: 90, // Ширина кнопки свайпа
+        width: 90,
         height: '100%',
-        // Чтобы кнопки были справа или слева
-        // Для правой кнопки: borderTopRightRadius, borderBottomRightRadius
-        // Для левой кнопки: borderTopLeftRadius, borderBottomLeftRadius
         paddingHorizontal: 10,
     },
     deleteButton: {
-        backgroundColor: "#FF3B30", // Красный цвет для удаления
+        backgroundColor: "#FF3B30",
         borderTopRightRadius: 20,
         borderBottomRightRadius: 20,
-        // Для правой кнопки действия нужно отступ слева, чтобы она прилегала к карточке
-        marginLeft: 0, // Убедитесь, что нет отступа
+        marginLeft: 0,
     },
     sortButton: {
-        backgroundColor: "#007AFF", // Синий цвет для сортировки (iOS blue)
-        // или colors.accent, если хотите использовать ваш акцентный цвет
+        backgroundColor: "#007AFF",
         borderTopLeftRadius: 20,
         borderBottomLeftRadius: 20,
-        // Для левой кнопки действия нужно отступ справа
-        marginRight: 0, // Убедитесь, что нет отступа
+        marginRight: 0,
     },
     swipeButtonText: {
         color: "#FFFFFF",
@@ -588,5 +600,9 @@ const styles = StyleSheet.create({
         marginVertical: 8,
         width: "100%",
         borderWidth: 1,
-    }
+    },
+    headerRightContainer: { // <--- ДОБАВЛЕН СТИЛЬ ДЛЯ КОНТЕЙНЕРА ВЕРХНЕЙ ПРАВОЙ ЧАСТИ
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
 });

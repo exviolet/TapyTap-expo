@@ -231,7 +231,7 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
                 </View>
 
                 <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-                    <Text style={[styles.label, { color: colors.text }]}>Описание (необязательно)</Text>
+                    <Text style={[styles.label, { color: colors.text }]}>Описание </Text>
                     <TextInput
                         style={[styles.input, styles.textArea, { color: colors.text }]}
                         value={description}
@@ -325,7 +325,7 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
 
 
                 <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-                    <Text style={[styles.label, { color: colors.text, marginBottom: 10 }]}>Категории (необязательно)</Text>
+                    <Text style={[styles.label, { color: colors.text, marginBottom: 10 }]}>Категории </Text>
                     <View style={styles.categoriesContainer}>
                         {allCategories.map((category) => {
                             const CatIcon = category.icon && iconMap[category.icon] ? iconMap[category.icon] : Book;

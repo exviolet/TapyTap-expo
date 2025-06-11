@@ -1,6 +1,6 @@
 // src/components/HabitCard.tsx
 import React, { useContext, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'; // Убедитесь, что Text импортирован
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -8,7 +8,7 @@ import { ThemeContext } from './ThemeProvider';
 import { Habit } from '../lib/habits';
 import {
     Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart, Check,
-    Lightbulb, Bell, Archive, PlusCircle, MinusCircle, Clock // Добавим новые иконки для UI
+    Lightbulb, Bell, Archive, PlusCircle, MinusCircle, Clock
 } from "lucide-react-native";
 
 type RootStackParamList = {
@@ -32,38 +32,32 @@ interface HabitCardProps {
 }
 
 export default function HabitCard({ habit, onUpdateProgress, onDeleteHabit }: HabitCardProps) {
-    const { colors = { background: "#1A1A2E", text: "#FFFFFF", accent: "#6A0DAD", inputBackground: "#2A2A3E", inputBorder: "#3A3A5C" } } = useContext(ThemeContext);
+    const { colors } = useContext(ThemeContext); // Получаем цвета из контекста темы
     const navigation = useNavigation<NavigationProp>();
 
     const progressWidth = useSharedValue(0);
-    const scale = useSharedValue(1); // Для анимации нажатия карточки
+    const scale = useSharedValue(1);
 
-    // ИСПРАВЛЕНИЕ: Используем habit.target_completions
-    const targetCompletions = habit.target_completions || 1; // Убедимся, что не 0 или undefined
+    const targetCompletions = habit.target_completions || 1;
     const currentProgress = habit.progress;
 
-    // Анимированный стиль для прогресс-бара
     const animatedProgressStyle = useAnimatedStyle(() => {
         return {
             width: `${progressWidth.value}%`,
         };
     });
 
-    // Анимированный стиль для нажатия карточки
     const animatedCardScaleStyle = useAnimatedStyle(() => {
         return {
             transform: [{ scale: scale.value }],
         };
     });
 
-    // Обновляем progressWidth при изменении currentProgress или goalSeries
     useEffect(() => {
-        // Вычисляем процент от target_completions
         const targetPercentage = (currentProgress / targetCompletions) * 100;
         const clampedPercentage = Math.min(100, Math.max(0, targetPercentage));
-        console.log(`Habit: ${habit.name}, Progress: ${currentProgress}, Goal: ${targetCompletions}, Target %: ${clampedPercentage}`);
-        progressWidth.value = withTiming(clampedPercentage, { duration: 400 }); // Убрал плавность, как вы просили
-    }, [currentProgress, targetCompletions, progressWidth]); // Обновите зависимости useEffect
+        progressWidth.value = withTiming(clampedPercentage, { duration: 400 });
+    }, [currentProgress, targetCompletions, progressWidth]);
 
     const handlePressIn = () => {
         scale.value = withSpring(0.95);
@@ -75,28 +69,24 @@ export default function HabitCard({ habit, onUpdateProgress, onDeleteHabit }: Ha
 
     const LucideIcon = iconMap[habit.icon || "Book"];
 
-    // renderRightActions больше не нужен здесь, так как он в HabitsScreen
-
     return (
-        // ИСПРАВЛЕНИЕ 2: Animated.View как корневой элемент для анимации,
-        // а TouchableOpacity внутри для обработки нажатий на карточку.
         <Animated.View style={[styles.cardWrapper, animatedCardScaleStyle]}>
             <TouchableOpacity
                 onPressIn={handlePressIn}
                 onPressOut={handlePressOut}
                 onPress={() => navigation.navigate("EditHabit", { habit: habit })}
                 activeOpacity={0.9}
-                style={[styles.card, { backgroundColor: "rgba(35, 35, 58, 0.7)", borderColor: "rgba(255, 255, 255, 0.1)" }]}
+                style={[styles.card, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
             >
                 <View style={styles.iconContainer}>
-                    <View style={[styles.iconBg, { borderColor: colors.accent }]}>
+                    <View style={[styles.iconBg, { borderColor: colors.accent, backgroundColor: colors.cardIconBackground }]}>
                         <LucideIcon size={28} color={colors.accent} strokeWidth={2} />
                     </View>
                 </View>
                 <View style={styles.content}>
-                    <Text style={styles.habitTitle}>{habit.name}</Text>
+                    <Text style={[styles.habitTitle, { color: colors.text }]}>{habit.name}</Text>
                     {habit.description && (
-                        <Text style={styles.subtitle}>{habit.description}</Text>
+                        <Text style={[styles.subtitle, { color: colors.text }]}>{habit.description}</Text>
                     )}
                     <View style={styles.categoryContainer}>
                         {habit.categories && habit.categories.length > 0 ? (
@@ -110,33 +100,33 @@ export default function HabitCard({ habit, onUpdateProgress, onDeleteHabit }: Ha
                                 );
                             })
                         ) : (
-                            <Text style={styles.subtitle}>Без категории</Text>
+                            <Text style={[styles.subtitle, { color: colors.text }]}>Без категории</Text>
                         )}
                     </View>
                     <View style={styles.progressContainer}>
-                        <View style={styles.progressBar}>
+                        <View style={[styles.progressBar, { backgroundColor: colors.inputBorder }]}>
                             <Animated.View
                                 style={[
                                     styles.progressFill,
-                                    animatedProgressStyle, // Используем анимированный стиль здесь
+                                    animatedProgressStyle,
                                     { backgroundColor: colors.accent }
                                 ]}
                             />
                         </View>
                         <View style={styles.progressRow}>
-                                <Text style={styles.progressCounterText}>{currentProgress} / {targetCompletions} в день</Text>
+                            <Text style={[styles.progressCounterText, { color: colors.text }]}>{currentProgress} / {targetCompletions} в день</Text>
                             <View style={styles.progressButtons}>
                                 <TouchableOpacity
                                     onPress={() => onUpdateProgress(habit.id, Math.max(0, currentProgress - 1))}
                                     style={[styles.progressButton, { backgroundColor: colors.inputBackground }]}
                                 >
-                                    <Text style={styles.progressButtonText}>-1</Text>
+                                    <Text style={[styles.progressButtonText, { color: colors.text }]}>-1</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     onPress={() => onUpdateProgress(habit.id, currentProgress + 1)}
                                     style={[styles.progressButton, { backgroundColor: colors.inputBackground }]}
                                 >
-                                    <Text style={styles.progressButtonText}>+1</Text>
+                                    <Text style={[styles.progressButtonText, { color: colors.text }]}>+1</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     onPress={() => onUpdateProgress(habit.id, targetCompletions)}
@@ -169,21 +159,19 @@ const styles = StyleSheet.create({
         padding: 20,
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "rgba(35, 35, 58, 0.7)",
         borderWidth: 1,
-        borderColor: "rgba(255, 255, 255, 0.1)",
     },
     iconContainer: {
         justifyContent: "center",
         marginRight: 20,
     },
     iconBg: {
-        backgroundColor: "rgba(26, 26, 46, 0.7)",
         borderRadius: 15,
         padding: 12,
         borderWidth: 2,
         alignItems: "center",
         justifyContent: "center",
+        // backgroundColor теперь задается динамически
     },
     content: {
         flex: 1,
@@ -191,12 +179,10 @@ const styles = StyleSheet.create({
     habitTitle: {
         fontSize: 18,
         fontWeight: "700",
-        color: "#FFFFFF",
         marginBottom: 6,
     },
     subtitle: {
         fontSize: 14,
-        color: "#B0B0D0",
         marginBottom: 8,
     },
     categoryContainer: {
@@ -213,7 +199,7 @@ const styles = StyleSheet.create({
         borderRadius: 15,
         marginRight: 8,
         marginBottom: 6,
-        backgroundColor: "#4A4A6E",
+        backgroundColor: "#4A4A6E", // Если этот цвет также должен меняться, его нужно получать из темы
     },
     categoryChipText: {
         fontSize: 13,
@@ -225,7 +211,6 @@ const styles = StyleSheet.create({
     },
     progressBar: {
         height: 6,
-        backgroundColor: 'rgba(255, 255, 255, 0.15)',
         borderRadius: 3,
         overflow: 'hidden',
     },
@@ -242,7 +227,6 @@ const styles = StyleSheet.create({
     progressCounterText: {
         fontSize: 13,
         fontWeight: '600',
-        color: '#FFFFFF',
     },
     progressButtons: {
         flexDirection: 'row',
@@ -262,7 +246,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#4CAF50',
     },
     progressButtonText: {
-        color: '#FFFFFF',
         fontSize: 16,
         fontWeight: '600',
     },
