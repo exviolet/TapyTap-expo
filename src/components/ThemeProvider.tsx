@@ -4,18 +4,24 @@ import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // Установите: npm install @react-native-async-storage/async-storage
 
 // Определяем интерфейс для цветовой палитры
-interface ColorPalette {
+export interface ColorPalette {
     background: string;
     text: string;
     accent: string;
     inputBackground: string;
     inputBorder: string;
-    cardBackground: string; // Добавим для карточек, если они будут
+    cardBackground: string;
     cardIconBackground: string;
-    tabBarBackground: string; // Фон нижней панели навигации
-    tabBarActiveTint: string; // Цвет активной иконки/текста в нижней панели
-    tabBarInactiveTint: string; // Цвет неактивной иконки/текста в нижней панели
-    // Добавьте другие цвета по мере необходимости
+    tabBarBackground: string;
+    tabBarActiveTint: string;
+    tabBarInactiveTint: string;
+    textSecondary: string; // <-- ДОБАВЛЕНО
+    textFaded: string;     // <-- ДОБАВЛЕНО
+    border: string;        // <-- Также добавим border, который использовался в CalendarScreen
+    // НОВЫЕ ЦВЕТА ДЛЯ ПРОГРЕССА КАЛЕНДАРЯ
+    progressRed: string;   // Для 0% выполнения
+    progressYellow: string; // Для частичного выполнения
+    progressGreen: string; // Для 100% выполнения
 }
 
 // Определяем интерфейс для контекста темы
@@ -28,29 +34,41 @@ interface ThemeContextType {
 
 // Определяем палитры цветов в стиле Obsidian
 const darkColors: ColorPalette = {
-    background: "#000000", // Чисто чёрный фон
-    text: "#FFFFFF",     // Белый текст
-    accent: "#6A0DAD",   // Яркий фиолетовый
-    inputBackground: "#1A1A2E", // Тёмный фон для полей ввода
-    inputBorder: "#3A3A5C",     // Более светлый фиолетовый для границ
-    cardBackground: "#1A1A2E", // Тёмный фон для карточек привычек
+    background: "#000000",
+    text: "#FFFFFF",
+    accent: "#6A0DAD",
+    inputBackground: "#1A1A2E",
+    inputBorder: "#3A3A5C",
+    cardBackground: "#1A1A2E",
     cardIconBackground: "#1A1A2E",
-    tabBarBackground: "#000000", // Темный фон для нижней панели
-    tabBarActiveTint: "#6A0DAD", // Фиолетовый для активных элементов
-    tabBarInactiveTint: "#707070", // Более светлый серый для неактивных
+    tabBarBackground: "#000000",
+    tabBarActiveTint: "#6A0DAD",
+    tabBarInactiveTint: "#707070",
+    textSecondary: "#A0A0A0", // <-- ДОБАВЛЕНО: примерное значение для темной темы
+    textFaded: "#707070",     // <-- ДОБАВЛЕНО: примерное значение для темной темы
+    border: "#3A3A5C",        // <-- ДОБАВЛЕНО: используем похожий на inputBorder
+    progressRed: "#FF3B30",     // Красный
+    progressYellow: "#FFCC00",  // Желтый
+    progressGreen: "#4CAF50",   // Зеленый
 };
 
 const lightColors: ColorPalette = {
-    background: "#F0F0F0", // Светло-серый фон
-    text: "#333333",     // Тёмный текст
-    accent: "#6A0DAD",   // Тот же фиолетовый акцент
-    inputBackground: "#FFFFFF", // Белый фон для полей ввода
-    inputBorder: "#CCCCCC",     // Светло-серый для границ
-    cardBackground: "#FFFFFF", // Белый фон для карточек
+    background: "#F0F0F0",
+    text: "#333333",
+    accent: "#6A0DAD",
+    inputBackground: "#FFFFFF",
+    inputBorder: "#CCCCCC",
+    cardBackground: "#FFFFFF",
     cardIconBackground: "#FFFFFF",
-    tabBarBackground: "#FFFFFF", // Белый фон для нижней панели
-    tabBarActiveTint: "#6A0DAD", // Фиолетовый для активных элементов
-    tabBarInactiveTint: "#A0A0A0", // Серый для неактивных
+    tabBarBackground: "#FFFFFF",
+    tabBarActiveTint: "#6A0DAD",
+    tabBarInactiveTint: "#A0A0A0",
+    textSecondary: "#666666", // <-- ДОБАВЛЕНО: примерное значение для светлой темы
+    textFaded: "#999999",     // <-- ДОБАВЛЕНО: примерное значение для светлой темы
+    border: "#CCCCCC",        // <-- ДОБАВЛЕНО: используем похожий на inputBorder
+    progressRed: "#FF3B30",     // Красный
+    progressYellow: "#FFCC00",  // Желтый
+    progressGreen: "#4CAF50",   // Зеленый
 };
 
 export const ThemeContext = createContext<ThemeContextType>({

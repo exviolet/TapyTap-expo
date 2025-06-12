@@ -73,7 +73,7 @@ export default function AnimatedTabBarButton({
         };
     });
 
-    // Динамический импорт иконки Lucide
+    // Динамический импорт иконки Lucide 
 const RawIconComponent = LucideIcons[iconName as keyof typeof LucideIcons];
 const IconComponent = (RawIconComponent || LucideIcons.HelpCircle) as LucideIcon;
 const AnimatedLucideIcon = Animated.createAnimatedComponent(IconComponent);

@@ -14,7 +14,6 @@ import {
 type RootStackParamList = {
     Habits: undefined;
     AddHabit: undefined;
-    EditHabit: { habit: Habit };
 };
 
 type NavigationProp = StackNavigationProp<RootStackParamList, "Habits">;
@@ -74,7 +73,6 @@ export default function HabitCard({ habit, onUpdateProgress, onDeleteHabit }: Ha
             <TouchableOpacity
                 onPressIn={handlePressIn}
                 onPressOut={handlePressOut}
-                onPress={() => navigation.navigate("EditHabit", { habit: habit })}
                 activeOpacity={0.9}
                 style={[styles.card, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
             >

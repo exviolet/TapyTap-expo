@@ -4,23 +4,23 @@ import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert, Style
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { ThemeContext } from "../components/ThemeProvider";
-import { Habit, fetchHabits, deleteHabit, updateHabit, fetchCategories, deleteCategory, Category } from "../lib/habits";
-import Animated, { FadeIn, FadeOut, useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS} from "react-native-reanimated";
-import { Swipeable } from "react-native-gesture-handler"; // GestureHandlerRootView должна быть выше в AppNavigator
-import ModeToggle from '../components/ModeToggle'; // <--- Убедитесь, что это импортировано
+import { Habit, Category } from "../lib/habits"; // Теперь Habits, Category берутся отсюда
+import Animated, { FadeIn, FadeOut, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
+import { Swipeable } from "react-native-gesture-handler";
+import ModeToggle from '../components/ModeToggle';
 import {
     Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart, Check,
-    Lightbulb, Bell, Archive, PlusCircle, MinusCircle, X, Clock, // Добавим новые иконки для UI
+    Lightbulb, Bell, Archive, PlusCircle, MinusCircle, X, Clock,
     Menu, Trash2, Edit
 } from "lucide-react-native";
 
-
 import HabitCard from "../components/HabitCard";
+import { useHabitStore } from "../store/useHabitStore"; // Импортируем наше хранилище Zustand
+import { supabase } from "../supabase/supabaseClient"; // Для получения user_id
 
 type RootStackParamList = {
     Habits: undefined;
     AddHabit: undefined;
-    EditHabit: { habit: Habit };
     SortCategories: undefined;
     SortHabits: { categoryId: string; categoryName: string };
 };
@@ -33,86 +33,67 @@ const iconMap: { [key: string]: React.ComponentType<any> } = {
 };
 
 export default function HabitsScreen() {
-    const { colors, theme } = useContext(ThemeContext); // Получаем также `theme` из контекста
+    const { colors, theme } = useContext(ThemeContext);
     const navigation = useNavigation<NavigationProp>();
-    const [habits, setHabits] = useState<Habit[]>([]);
+
+    // Используем состояние из Zustand
+    const { 
+        habits, 
+        categories, 
+        isLoading, 
+        fetchHabits, 
+        fetchCategories, 
+        updateHabitProgress,
+        deleteHabit, // Используем функцию из Zustand
+        deleteCategory, // Используем функцию из Zustand
+        updateHabit // Добавим если нужно будет обновлять HabitCard напрямую
+    } = useHabitStore();
+
     const [filteredHabits, setFilteredHabits] = useState<Habit[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string>("All");
-    const [categories, setCategories] = useState<Category[]>([]); 
-    const [isLoading, setIsLoading] = useState(true);
 
     const [selectedCategoryForMenu, setSelectedCategoryForMenu] = useState<Category | null>(null);
     const [showCategoryMenu, setShowCategoryMenu] = useState(false);
 
-    // Анимации для кнопок
+    // Анимации для кнопок (остаются, они UI-специфичны)
     const addButtonScale = useSharedValue(1);
     const deleteButtonScale = useSharedValue(1);
     const sortButtonScale = useSharedValue(1);
     const cancelButtonScale = useSharedValue(1);
     const sortHabitsButtonScale = useSharedValue(1);
 
-    const animatedAddButtonStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: addButtonScale.value }],
-    }));
-    const animatedDeleteButtonStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: deleteButtonScale.value }],
-    }));
-    const animatedSortButtonStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: sortButtonScale.value }],
-    }));
-    const animatedCancelButtonStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: cancelButtonScale.value }],
-    }));
-    const animatedSortHabitsButtonStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: sortHabitsButtonScale.value }],
-    }));
+    const animatedAddButtonStyle = useAnimatedStyle(() => ({ transform: [{ scale: addButtonScale.value }] }));
+    const animatedDeleteButtonStyle = useAnimatedStyle(() => ({ transform: [{ scale: deleteButtonScale.value }] }));
+    const animatedSortButtonStyle = useAnimatedStyle(() => ({ transform: [{ scale: sortButtonScale.value }] }));
+    const animatedCancelButtonStyle = useAnimatedStyle(() => ({ transform: [{ scale: cancelButtonScale.value }] }));
+    const animatedSortHabitsButtonStyle = useAnimatedStyle(() => ({ transform: [{ scale: sortHabitsButtonScale.value }] }));
 
-    // Функции для обработки нажатий на кнопки
     const handleAddPressIn = () => { addButtonScale.value = withSpring(0.95); };
     const handleAddPressOut = () => { addButtonScale.value = withSpring(1); };
-
     const handleDeletePressIn = () => { deleteButtonScale.value = withSpring(0.95); };
     const handleDeletePressOut = () => { deleteButtonScale.value = withSpring(1); };
-
     const handleSortPressIn = () => { sortButtonScale.value = withSpring(0.95); };
     const handleSortPressOut = () => { sortButtonScale.value = withSpring(1); };
-
     const handleCancelPressIn = () => { cancelButtonScale.value = withSpring(0.95); };
     const handleCancelPressOut = () => { cancelButtonScale.value = withSpring(1); };
-
     const handleSortHabitsPressIn = () => { sortHabitsButtonScale.value = withSpring(0.95); };
     const handleSortHabitsPressOut = () => { sortHabitsButtonScale.value = withSpring(1); };
 
-    const loadData = async () => {
-        setIsLoading(true);
-        try {
-            const fetchedHabits = await fetchHabits();
-            setHabits(fetchedHabits);
-
-            const fetchedCategories = await fetchCategories();
-            const allAndNoCategory = [
-                { id: "All", name: "Все", color: colors.accent, icon: 'Star' },
-                { id: "Без категории", name: "Без категории", color: colors.text, icon: 'X' },
-            ];
-            setCategories([...allAndNoCategory, ...fetchedCategories] as Category[]);
-             
-            if (!fetchedCategories.some(cat => cat.id === selectedCategory) && selectedCategory !== "All" && selectedCategory !== "Без категории") {
-                setSelectedCategory("All");
-            }
-        } catch (error) {
-            console.error("Error loading data:", error);
-            Alert.alert("Ошибка", "Не удалось загрузить данные.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
+    // Загрузка данных при фокусировке экрана
     useFocusEffect(
         React.useCallback(() => {
-            loadData();
-        }, [])
+            const loadInitialData = async () => {
+                const { data: userData } = await supabase.auth.getUser();
+                if (userData?.user) {
+                    await fetchHabits(userData.user.id);
+                    await fetchCategories();
+                }
+            };
+            loadInitialData();
+        }, [fetchHabits, fetchCategories]) // Зависимости теперь функции из Zustand
     );
 
+    // Фильтрация привычек при изменении выбранной категории или самих привычек
     useEffect(() => {
         const filterHabits = () => {
             if (selectedCategory === "All") {
@@ -130,6 +111,15 @@ export default function HabitsScreen() {
         filterHabits();
     }, [selectedCategory, habits]);
 
+    // Обновляем выбранную категорию, если она была удалена
+    useEffect(() => {
+        if (!categories.some(cat => cat.id === selectedCategory) && selectedCategory !== "All" && selectedCategory !== "Без категории") {
+            setSelectedCategory("All");
+        }
+    }, [categories, selectedCategory]);
+
+
+    // Обработчик удаления привычки (теперь использует deleteHabit из Zustand)
     const handleDeleteHabit = (habitId: string) => {
         Alert.alert(
             "Удалить привычку?",
@@ -141,9 +131,11 @@ export default function HabitsScreen() {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            await deleteHabit(habitId);
-                            loadData(); 
+                            await deleteHabit(habitId); // Вызываем функцию из Zustand
+                            Alert.alert("Успех", "Привычка удалена.");
+                            // Zustand сам обновит `habits`, no need to call `loadData()` here.
                         } catch (error) {
+                            console.error("Error deleting habit:", error);
                             Alert.alert("Ошибка", "Не удалось удалить привычку.");
                         }
                     },
@@ -152,14 +144,17 @@ export default function HabitsScreen() {
         );
     };
 
+    // Обработчик обновления прогресса (теперь использует updateHabitProgress из Zustand)
     const handleUpdateHabitProgress = async (habitId: string, newProgress: number) => {
         try {
-            await updateHabit(habitId, { progress: newProgress });
-            setHabits(prevHabits =>
-                prevHabits.map(h =>
-                    h.id === habitId ? { ...h, progress: newProgress } : h
-                )
-            );
+            const habitToUpdate = habits.find(h => h.id === habitId);
+            if (!habitToUpdate) {
+                console.warn("Habit not found for update progress:", habitId);
+                return;
+            }
+            // Передаем target_completions для записи в daily_progress
+            await updateHabitProgress(habitId, newProgress, habitToUpdate.target_completions);
+            // Zustand сам обновит `habits`
         } catch (error) {
             console.error("Error updating habit progress:", error);
             Alert.alert("Ошибка", "Не удалось обновить прогресс привычки.");
@@ -181,10 +176,13 @@ export default function HabitsScreen() {
     const renderLeftActions = (habit: Habit) => {
         return (
             <TouchableOpacity
-                style={[styles.swipeAction, styles.sortButton]}
+                style={[styles.swipeAction, styles.sortButton]} // Добавляем swipeAction
+                // Здесь будет логика для перехода на экран сортировки
                 onPress={() => {
+                    // Переходим на экран сортировки для текущей выбранной категории
+                    // или для "Всех" / "Без категории"
                     navigation.navigate("SortHabits", { 
-                        categoryId: selectedCategory,
+                        categoryId: selectedCategory, // Использовать selectedCategory, чтобы сортировать то, что сейчас показывается
                         categoryName: categories.find(cat => cat.id === selectedCategory)?.name || "Все привычки"
                     });
                 }}
@@ -194,7 +192,6 @@ export default function HabitsScreen() {
             </TouchableOpacity>
         );
     };
-
 
     const renderItem = ({ item }: { item: Habit }) => {
         return (
@@ -208,7 +205,7 @@ export default function HabitsScreen() {
                 <HabitCard
                     habit={item}
                     onUpdateProgress={handleUpdateHabitProgress}
-                    onDeleteHabit={handleDeleteHabit}
+                    onDeleteHabit={() => { /* Удаление происходит через свайп, поэтому здесь ничего не делаем */ }}
                 />
             </Swipeable>
         );
@@ -234,11 +231,11 @@ export default function HabitsScreen() {
                     text: "Удалить",
                     onPress: async () => {
                         try {
-                            await deleteCategory(selectedCategoryForMenu.id);
+                            await deleteCategory(selectedCategoryForMenu.id); // Вызываем функцию из Zustand
                             setShowCategoryMenu(false);
                             setSelectedCategoryForMenu(null);
-                            await loadData();
                             Alert.alert("Успех", "Категория удалена.");
+                            // Zustand сам обновит `categories` и привычки
                         } catch (error) {
                             console.error("Error deleting category:", error);
                             Alert.alert("Ошибка", "Не удалось удалить категорию.");
@@ -259,15 +256,15 @@ export default function HabitsScreen() {
         if (!selectedCategoryForMenu) return;
         setShowCategoryMenu(false);
 
-        navigation.navigate("SortHabits", { 
+        navigation.navigate("SortHabits", {
             categoryId: selectedCategoryForMenu.id,
-            categoryName: selectedCategoryForMenu.name 
+            categoryName: selectedCategoryForMenu.name
         });
     };
 
     const renderCategory = (item: Category) => {
         const isSelected = selectedCategory === item.id;
-        const CatIcon = item.icon && iconMap[item.icon] ? iconMap[item.icon] : Book; 
+        const CatIcon = item.icon && iconMap[item.icon] ? iconMap[item.icon] : Book;
 
         return (
             <TouchableOpacity
@@ -305,21 +302,20 @@ export default function HabitsScreen() {
     // Устанавливаем опции заголовка, включая кнопку переключения темы
     useEffect(() => {
         navigation.setOptions({
-            headerShown: true, // Показываем заголовок
-            title: "Мои привычки", // Заголовок экрана
+            headerShown: true,
+            title: "Мои привычки",
             headerStyle: {
-                backgroundColor: colors.background, // Цвет фона заголовка
-                shadowColor: 'transparent', // Убираем тень под заголовком
+                backgroundColor: colors.background,
+                shadowColor: 'transparent',
                 elevation: 0,
             },
-            headerTintColor: colors.text, // Цвет текста заголовка
+            headerTintColor: colors.text,
             headerTitleStyle: {
                 fontWeight: 'bold',
             },
-            // Правая часть заголовка: кнопка переключения темы и кнопка добавления привычки
             headerRight: () => (
                 <View style={styles.headerRightContainer}>
-                    <ModeToggle /> {/* <--- КОМПОНЕНТ ПЕРЕКЛЮЧЕНИЯ ТЕМЫ */}
+                    <ModeToggle />
                     <TouchableOpacity
                         onPressIn={handleAddPressIn}
                         onPressOut={handleAddPressOut}
@@ -331,12 +327,13 @@ export default function HabitsScreen() {
                 </View>
             ),
         });
-    }, [navigation, colors, handleAddPressIn, handleAddPressOut]); // Зависимости: навигация, цвета, и функции анимации кнопки
+    }, [navigation, colors, handleAddPressIn, handleAddPressOut]);
 
     if (isLoading) {
         return (
             <View style={[styles.container, styles.centerContent, { backgroundColor: colors.background }]}>
                 <ActivityIndicator size="large" color={colors.accent} />
+                <Text style={{ color: colors.text, marginTop: 10 }}>Загрузка данных...</Text>
             </View>
         );
     }
@@ -348,7 +345,7 @@ export default function HabitsScreen() {
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     data={categories}
-                    renderItem={({ item }) => renderCategory(item)} // Передаем item
+                    renderItem={({ item }) => renderCategory(item)}
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.categoryList}
                 />
@@ -384,10 +381,10 @@ export default function HabitsScreen() {
                             {selectedCategoryForMenu?.name}
                         </Text>
 
-                        <Pressable 
-                            onPressIn={handleSortPressIn} 
-                            onPressOut={handleSortPressOut} 
-                            onPress={handleSortCategories} 
+                        <Pressable
+                            onPressIn={handleSortPressIn}
+                            onPressOut={handleSortPressOut}
+                            onPress={handleSortCategories}
                             style={{ width: '100%' }}
                         >
                             <Animated.View style={[styles.modalButton, { backgroundColor: colors.accent }, animatedSortButtonStyle]}>
@@ -398,22 +395,22 @@ export default function HabitsScreen() {
 
 
                         {selectedCategoryForMenu && (
-                            <Pressable 
+                            <Pressable
                                 onPressIn={handleSortHabitsPressIn}
                                 onPressOut={handleSortHabitsPressOut}
-                                onPress={handleSortHabits} 
+                                onPress={handleSortHabits}
                                 style={{ width: '100%' }}
                             >
                                 <Animated.View style={[styles.modalButton, { backgroundColor: colors.accent }, animatedSortHabitsButtonStyle]}>
-                                    <Menu size={20} color="#FFFFFF" /> 
+                                    <Menu size={20} color="#FFFFFF" />
                                     <Text style={styles.modalButtonText}>Сортировать привычки</Text>
                                 </Animated.View>
                             </Pressable>
                         )}
 
-                        <Pressable 
-                            onPressIn={handleDeletePressIn} 
-                            onPressOut={handleDeletePressOut} 
+                        <Pressable
+                            onPressIn={handleDeletePressIn}
+                            onPressOut={handleDeletePressOut}
                             onPress={handleDeleteCategory}
                             style={{ width: '100%' }}
                         >
@@ -423,9 +420,9 @@ export default function HabitsScreen() {
                             </Animated.View>
                         </Pressable>
 
-                        <Pressable 
-                            onPressIn={handleCancelPressIn} 
-                            onPressOut={handleCancelPressOut} 
+                        <Pressable
+                            onPressIn={handleCancelPressIn}
+                            onPressOut={handleCancelPressOut}
                             onPress={() => setShowCategoryMenu(false)}
                             style={{ width: '100%' }}
                         >
@@ -542,7 +539,7 @@ const styles = StyleSheet.create({
         borderBottomRightRadius: 20,
         marginLeft: 0,
     },
-    sortButton: {
+    sortButton: { // Изменен на "Edit"
         backgroundColor: "#007AFF",
         borderTopLeftRadius: 20,
         borderBottomLeftRadius: 20,
@@ -601,7 +598,7 @@ const styles = StyleSheet.create({
         width: "100%",
         borderWidth: 1,
     },
-    headerRightContainer: { // <--- ДОБАВЛЕН СТИЛЬ ДЛЯ КОНТЕЙНЕРА ВЕРХНЕЙ ПРАВОЙ ЧАСТИ
+    headerRightContainer: {
         flexDirection: 'row',
         alignItems: 'center',
     },
