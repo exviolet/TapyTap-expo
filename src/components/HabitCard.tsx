@@ -1,266 +1,206 @@
-// src/components/HabitCard.tsx
+// src/components/HabitCard.tsx (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 import React, { useContext, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ThemeContext } from './ThemeProvider';
 import { Habit } from '../lib/habits';
-import {
-    Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart, Check,
-    Lightbulb, Bell, Archive, PlusCircle, MinusCircle, Clock
-} from "lucide-react-native";
+import * as LucideIcons from "lucide-react-native";
 
 type RootStackParamList = {
     Habits: undefined;
     AddHabit: undefined;
+    EditHabit: { habit: Habit };
 };
 
 type NavigationProp = StackNavigationProp<RootStackParamList, "Habits">;
 
-// Маппинг иконок
 const iconMap: { [key: string]: React.ComponentType<any> } = {
-    Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart,
-    Lightbulb, Bell, Archive, Clock, PlusCircle, MinusCircle
+    Book: LucideIcons.Book,
+    Activity: LucideIcons.Activity,
+    GraduationCap: LucideIcons.GraduationCap,
+    Briefcase: LucideIcons.Briefcase,
+    Music: LucideIcons.Music,
+    Coffee: LucideIcons.Coffee,
+    Sun: LucideIcons.Sun,
+    Moon: LucideIcons.Moon,
+    Star: LucideIcons.Star,
+    Heart: LucideIcons.Heart,
+    Lightbulb: LucideIcons.Lightbulb,
+    Bell: LucideIcons.Bell,
+    Archive: LucideIcons.Archive,
+    Clock: LucideIcons.Clock,
+    CheckSquare: LucideIcons.CheckSquare, // Добавим иконку по умолчанию
+    // Добавьте другие иконки, если они используются
 };
 
 interface HabitCardProps {
     habit: Habit;
-    onUpdateProgress: (habitId: string, newProgress: number) => void;
-    onDeleteHabit: (habitId: string) => void;
+    onUpdateProgress: (habitId: string, newProgress: number, date: string) => void;
+    onLongPress: (habit: Habit) => void;
+    onPress: (habit: Habit) => void;
+    currentDate: string;
 }
 
-export default function HabitCard({ habit, onUpdateProgress, onDeleteHabit }: HabitCardProps) {
-    const { colors } = useContext(ThemeContext); // Получаем цвета из контекста темы
+const HabitCard: React.FC<HabitCardProps> = ({ habit, onUpdateProgress, onLongPress, onPress, currentDate }) => {
+    const theme = useContext(ThemeContext);
+    if (!theme) throw new Error('ThemeContext must be used within ThemeProvider');
+    const { colors } = theme;
     const navigation = useNavigation<NavigationProp>();
 
-    const progressWidth = useSharedValue(0);
-    const scale = useSharedValue(1);
+    const CurrentIcon = iconMap[habit.icon] || LucideIcons.CheckSquare;
 
-    const targetCompletions = habit.target_completions || 1;
-    const currentProgress = habit.progress;
+    const progressPercentage = habit.target_completions > 0 ? (habit.progress / habit.target_completions) * 100 : 0;
+    const isCompleted = habit.progress >= habit.target_completions && habit.target_completions > 0;
 
-    const animatedProgressStyle = useAnimatedStyle(() => {
-        return {
-            width: `${progressWidth.value}%`,
-        };
-    });
+    const handleIncrement = () => {
+        onUpdateProgress(habit.id, habit.progress + 1, currentDate);
+    };
 
-    const animatedCardScaleStyle = useAnimatedStyle(() => {
-        return {
-            transform: [{ scale: scale.value }],
-        };
-    });
+    const handleDecrement = () => {
+        if (habit.progress > 0) {
+            onUpdateProgress(habit.id, habit.progress - 1, currentDate);
+        }
+    };
 
+    const handleComplete = () => {
+        if (isCompleted) {
+             onUpdateProgress(habit.id, 0, currentDate); // Сбрасываем прогресс, если уже выполнено
+        } else {
+             onUpdateProgress(habit.id, habit.target_completions, currentDate); // Мгновенно выполняем
+        }
+    }
+
+    const cardBgColor = useSharedValue(colors.cardBackground);
     useEffect(() => {
-        const targetPercentage = (currentProgress / targetCompletions) * 100;
-        const clampedPercentage = Math.min(100, Math.max(0, targetPercentage));
-        progressWidth.value = withTiming(clampedPercentage, { duration: 400 });
-    }, [currentProgress, targetCompletions, progressWidth]);
+        cardBgColor.value = withTiming(isCompleted ? colors.cardBackgroundCompleted : colors.cardBackground, { duration: 300 });
+    }, [isCompleted, colors.cardBackground, colors.cardBackgroundCompleted]);
 
-    const handlePressIn = () => {
-        scale.value = withSpring(0.95);
-    };
-
-    const handlePressOut = () => {
-        scale.value = withSpring(1);
-    };
-
-    const LucideIcon = iconMap[habit.icon || "Book"];
+    const animatedCardStyle = useAnimatedStyle(() => {
+        return {
+            backgroundColor: cardBgColor.value,
+        };
+    });
 
     return (
-        <Animated.View style={[styles.cardWrapper, animatedCardScaleStyle]}>
-            <TouchableOpacity
-                onPressIn={handlePressIn}
-                onPressOut={handlePressOut}
-                activeOpacity={0.9}
-                style={[styles.card, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
-            >
-                <View style={styles.iconContainer}>
-                    <View style={[styles.iconBg, { borderColor: colors.accent, backgroundColor: colors.cardIconBackground }]}>
-                        <LucideIcon size={28} color={colors.accent} strokeWidth={2} />
-                    </View>
+        <TouchableOpacity
+            onLongPress={() => onLongPress(habit)}
+            onPress={() => onPress(habit)}
+            style={styles.container}
+            activeOpacity={0.8}
+        >
+            <Animated.View style={[styles.card, animatedCardStyle]}>
+                <View style={[styles.iconContainer, { backgroundColor: isCompleted ? colors.accentFaded : (habit.categories[0]?.color || colors.accent) }]}>
+                    <CurrentIcon size={28} color={isCompleted ? colors.accent : "#FFFFFF"} />
                 </View>
-                <View style={styles.content}>
-                    <Text style={[styles.habitTitle, { color: colors.text }]}>{habit.name}</Text>
+                <View style={styles.detailsContainer}>
+                    <Text style={[styles.habitName, { color: colors.text }]}>{habit.name}</Text>
                     {habit.description && (
-                        <Text style={[styles.subtitle, { color: colors.text }]}>{habit.description}</Text>
+                        <Text style={[styles.habitDescription, { color: colors.textFaded }]} numberOfLines={1}>{habit.description}</Text>
                     )}
-                    <View style={styles.categoryContainer}>
-                        {habit.categories && habit.categories.length > 0 ? (
-                            habit.categories.map((cat) => {
-                                const CategoryIcon = iconMap[cat.icon || "Book"];
-                                return (
-                                    <View key={cat.id} style={[styles.categoryChip, { backgroundColor: cat.color }]}>
-                                        <CategoryIcon size={14} color="#FFFFFF" strokeWidth={2} style={{ marginRight: 4 }} />
-                                        <Text style={styles.categoryChipText}>{cat.name}</Text>
-                                    </View>
-                                );
-                            })
-                        ) : (
-                            <Text style={[styles.subtitle, { color: colors.text }]}>Без категории</Text>
-                        )}
-                    </View>
-                    <View style={styles.progressContainer}>
-                        <View style={[styles.progressBar, { backgroundColor: colors.inputBorder }]}>
-                            <Animated.View
-                                style={[
-                                    styles.progressFill,
-                                    animatedProgressStyle,
-                                    { backgroundColor: colors.accent }
-                                ]}
-                            />
-                        </View>
-                        <View style={styles.progressRow}>
-                            <Text style={[styles.progressCounterText, { color: colors.text }]}>{currentProgress} / {targetCompletions} в день</Text>
-                            <View style={styles.progressButtons}>
-                                <TouchableOpacity
-                                    onPress={() => onUpdateProgress(habit.id, Math.max(0, currentProgress - 1))}
-                                    style={[styles.progressButton, { backgroundColor: colors.inputBackground }]}
-                                >
-                                    <Text style={[styles.progressButtonText, { color: colors.text }]}>-1</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={() => onUpdateProgress(habit.id, currentProgress + 1)}
-                                    style={[styles.progressButton, { backgroundColor: colors.inputBackground }]}
-                                >
-                                    <Text style={[styles.progressButtonText, { color: colors.text }]}>+1</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={() => onUpdateProgress(habit.id, targetCompletions)}
-                                    style={[styles.progressButton, styles.completeButton]}
-                                >
-                                    <Text style={styles.progressButtonText}>✓</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
+                     <Text style={[styles.habitDescription, { color: colors.textFaded }]}>
+                        {habit.categories.length > 0 ? habit.categories.map(c => c.name).join(', ') : "Без категории"}
+                    </Text>
+                    <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: `${progressPercentage}%`, backgroundColor: colors.accent }]} />
                     </View>
                 </View>
-            </TouchableOpacity>
-        </Animated.View>
+                <View style={styles.controlsContainer}>
+                    <Text style={[styles.progressText, { color: colors.textSecondary }]}>
+                        {habit.progress}/{habit.target_completions} в день
+                    </Text>
+                    <View style={styles.buttonsRow}>
+                        <TouchableOpacity onPress={handleDecrement} style={[styles.controlButton, { backgroundColor: colors.inputBackground }]}>
+                            <Text style={{ color: colors.text }}>-1</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handleIncrement} style={[styles.controlButton, { backgroundColor: colors.inputBackground }]}>
+                            <Text style={{ color: colors.text }}>+1</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handleComplete} style={[styles.completeButton, { backgroundColor: isCompleted ? colors.progressGreen : colors.inputBackground }]}>
+                            <LucideIcons.Check size={20} color={isCompleted ? '#FFFFFF' : colors.text} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Animated.View>
+        </TouchableOpacity>
     );
-}
+};
 
 const styles = StyleSheet.create({
-    cardWrapper: {
+    container: {
         marginHorizontal: 16,
         marginVertical: 8,
-        borderRadius: 12,
-        overflow: 'hidden',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 15,
-        elevation: 10,
     },
     card: {
-        padding: 20,
-        flexDirection: "row",
-        alignItems: "center",
-        borderWidth: 1,
+        flexDirection: 'row',
+        padding: 12,
+        borderRadius: 16,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 5,
+        elevation: 4,
+        alignItems: 'center',
     },
     iconContainer: {
-        justifyContent: "center",
-        marginRight: 20,
+        width: 52,
+        height: 52,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
     },
-    iconBg: {
-        borderRadius: 15,
-        padding: 12,
-        borderWidth: 2,
-        alignItems: "center",
-        justifyContent: "center",
-        // backgroundColor теперь задается динамически
-    },
-    content: {
+    detailsContainer: {
         flex: 1,
+        justifyContent: 'center',
     },
-    habitTitle: {
-        fontSize: 18,
-        fontWeight: "700",
-        marginBottom: 6,
+    habitName: {
+        fontSize: 17,
+        fontWeight: '600',
     },
-    subtitle: {
-        fontSize: 14,
-        marginBottom: 8,
-    },
-    categoryContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        flexWrap: "wrap",
-        marginTop: 4,
-    },
-    categoryChip: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 5,
-        paddingHorizontal: 10,
-        borderRadius: 15,
-        marginRight: 8,
-        marginBottom: 6,
-        backgroundColor: "#4A4A6E", // Если этот цвет также должен меняться, его нужно получать из темы
-    },
-    categoryChipText: {
+    habitDescription: {
         fontSize: 13,
-        color: "#FFFFFF",
-        fontWeight: "500",
-    },
-    progressContainer: {
-        marginTop: 15,
+        marginTop: 2,
     },
     progressBar: {
-        height: 6,
-        borderRadius: 3,
+        height: 5,
+        borderRadius: 2.5,
+        backgroundColor: '#E0E0E0',
+        marginTop: 8,
         overflow: 'hidden',
     },
     progressFill: {
         height: '100%',
-        borderRadius: 3,
     },
-    progressRow: {
+    controlsContainer: {
+        marginLeft: 10,
+        alignItems: 'flex-end',
+    },
+    progressText: {
+        fontSize: 12,
+        fontWeight: '500',
+        marginBottom: 8,
+    },
+    buttonsRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 8,
     },
-    progressCounterText: {
-        fontSize: 13,
-        fontWeight: '600',
-    },
-    progressButtons: {
-        flexDirection: 'row',
-        gap: 10,
-    },
-    progressButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 16,
+    controlButton: {
+        width: 36,
+        height: 36,
         borderRadius: 8,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 4,
-        elevation: 3,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginHorizontal: 4,
     },
     completeButton: {
-        backgroundColor: '#4CAF50',
-    },
-    progressButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    deleteButton: {
-        backgroundColor: "#FF3B30",
-        justifyContent: "center",
-        alignItems: "center",
-        width: 90,
-        height: '100%',
-        borderTopRightRadius: 20,
-        borderBottomRightRadius: 20,
-        paddingHorizontal: 10,
-    },
-    deleteButtonText: {
-        color: "#FFFFFF",
-        fontSize: 14,
-        fontWeight: "600",
-        marginTop: 4,
+        width: 36,
+        height: 36,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 4,
     },
 });
+
+export default HabitCard;

@@ -4,13 +4,14 @@ import { supabase } from "../supabase/supabaseClient";
 
 const HABITS_KEY = "habits";
 const CATEGORIES_KEY = "categories";
-const HABIT_COMPLETIONS_KEY = "habit_completions"; // Новая константа для кэша выполнений
+const HABIT_COMPLETIONS_KEY = "habit_completions";
 
 export interface Category {
     id: string;
     name: string;
     icon: string;
     color: string;
+    user_id: string;
     created_at: string;
     updated_at: string;
     order_index?: number;
@@ -21,14 +22,15 @@ export interface Habit {
     user_id: string;
     name: string;
     description: string | null;
-    frequency: string; // Используется для напоминаний (например, "10:00, 14:30")
+    frequency: string;
     progress: number;
     created_at: string;
     updated_at: string;
-    goal_series: number; // 1 (ежедневно), 7 (неделя), 30 (месяц)
+    goal_series: number;
     icon: string;
-    categories: Category[]; // Список объектов Category
+    categories: Category[];
     target_completions: number;
+    is_archived: boolean;
     order_index?: number;
 }
 
@@ -131,10 +133,15 @@ export const fetchCategories = async (): Promise<Category[]> => {
     }
 };
 
-export const addCategory = async (category: Omit<Category, "id" | "created_at" | "updated_at" | "order_index">): Promise<Category> => {
+export const addCategory = async (category: Omit<Category, "id" | "created_at" | "updated_at" | "order_index" | "user_id">): Promise<Category> => {
+    // 1. Получаем текущего пользователя
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not authenticated to add category");
+
     const { data: maxOrderData, error: maxOrderError } = await supabase
         .from('categories')
         .select('order_index')
+        .eq('user_id', user.id) // Учитываем пользователя при поиске последнего индекса
         .order('order_index', { ascending: false })
         .limit(1);
 
@@ -150,16 +157,14 @@ export const addCategory = async (category: Omit<Category, "id" | "created_at" |
             name: category.name,
             icon: category.icon,
             color: category.color,
+            user_id: user.id, // <-- ВОТ ГЛАВНОЕ ИСПРАВЛЕНИЕ
             order_index: nextOrderIndex,
         })
         .select()
         .single();
 
     if (error || !data) throw error || new Error("Failed to add category");
-
-    const updatedCategories = await fetchCategories();
-    await AsyncStorage.setItem(CATEGORIES_KEY, JSON.stringify(updatedCategories));
-
+    
     return data;
 };
 
@@ -176,8 +181,8 @@ export const fetchHabits = async (): Promise<Habit[]> => {
         const { data: habits, error: habitError } = await supabase
             .from("habits")
             .select(`
-                id, user_id, name, description, frequency, progress, created_at, updated_at,
-                goal_series, icon, target_completions, order_index, 
+                id, user_id, name, description, frequency, created_at, updated_at,
+                goal_series, icon, target_completions, order_index,
                 habit_categories (
                     category_id,
                     categories (
@@ -202,8 +207,8 @@ export const fetchHabits = async (): Promise<Habit[]> => {
             categories: habit.habit_categories.map((hc: any) => hc.categories).filter(Boolean),
             target_completions: habit.target_completions === null ? 1 : Number(habit.target_completions),
             goal_series: habit.goal_series === null ? 1 : Number(habit.goal_series),
-            progress: Number(habit.progress),
-            frequency: habit.frequency || '', // Убедимся, что frequency всегда строка
+            // progress: Number(habit.progress), // <--- УДАЛЯЕМ ЭТУ СТРОКУ
+            frequency: habit.frequency || '',
         })) || [];
 
         await AsyncStorage.setItem(HABITS_KEY, JSON.stringify(transformedHabits));
@@ -243,7 +248,7 @@ export const addHabit = async (
                 name: habitData.name,
                 description: habitData.description,
                 frequency: habitData.frequency,
-                progress: habitData.progress,
+                // progress: habitData.progress, // <--- УДАЛЯЕМ ЭТУ СТРОКУ
                 goal_series: habitData.goal_series,
                 icon: habitData.icon,
                 target_completions: habitData.target_completions,
@@ -279,7 +284,7 @@ export const updateHabit = async (id: string, updatedFields: Partial<Habit>, cat
                 name: updatedFields.name,
                 description: updatedFields.description,
                 frequency: updatedFields.frequency,
-                progress: updatedFields.progress,
+                // progress: updatedFields.progress, // <--- УДАЛЯЕМ ЭТУ СТРОКУ
                 goal_series: updatedFields.goal_series,
                 icon: updatedFields.icon,
                 target_completions: updatedFields.target_completions,
@@ -321,11 +326,10 @@ export const deleteHabit = async (id: string): Promise<void> => {
             console.error("Error deleting habit categories relations:", relationError);
         }
 
-        // Затем удаляем саму привычку
-        const { error } = await supabase.from("habits").delete().eq("id", id);
-        if (error) throw error;
-
         // Также удаляем все записи о выполнении этой привычки
+        // <--- УБЕДИТЕСЬ, ЧТО У ВАС ЕСТЬ ОГРАНИЧЕНИЕ ON DELETE CASCADE В БАЗЕ ДАННЫХ
+        // НА `habit_id` В ТАБЛИЦЕ `habit_completions`, ИНАЧЕ ЭТА СТРОКА НУЖНА.
+        // Если ON DELETE CASCADE есть, то эта строка не нужна, но я оставлю ее для безопасности.
         const { error: completionsError } = await supabase
             .from("habit_completions")
             .delete()
@@ -333,6 +337,11 @@ export const deleteHabit = async (id: string): Promise<void> => {
         if (completionsError) {
             console.error("Error deleting habit completions:", completionsError);
         }
+
+        // Затем удаляем саму привычку
+        const { error } = await supabase.from("habits").delete().eq("id", id);
+        if (error) throw error;
+
 
         const updatedHabits = await fetchHabits();
         await AsyncStorage.setItem(HABITS_KEY, JSON.stringify(updatedHabits));
@@ -367,64 +376,7 @@ export const updateHabitOrder = async (habits: Habit[]): Promise<void> => {
     }
 };
 
-// --- НОВЫЕ ФУНКЦИИ ДЛЯ ОТМЕТОК О ВЫПОЛНЕНИИ ПРИВЫЧЕК ---
 
-/**
- * Получает отметки о выполнении привычек для конкретной даты.
- * @param date Строка даты в формате 'YYYY-MM-DD'.
- * @returns Массив объектов HabitCompletion.
- */
-export const fetchCompletionsForDate = async (date: string): Promise<HabitCompletion[]> => {
-    try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            console.warn("User not authenticated for fetching habit completions.");
-            return [];
-        }
-
-        const { data, error } = await supabase
-            .from("habit_completions")
-            .select("*")
-            .eq("user_id", user.id)
-            .eq("completion_date", date);
-
-        if (error) {
-            console.error(`Error fetching habit completions for date ${date}:`, error);
-            throw error;
-        }
-
-        const completions = (data || []) as HabitCompletion[];
-        // Кэширование можно добавить здесь, если это необходимо
-        return completions;
-    } catch (error) {
-        console.error("Failed to fetch habit completions for date:", error);
-        // Можно попытаться загрузить из кэша, если он был реализован для этого типа данных
-        return [];
-    }
-};
-
-// НОВАЯ ФУНКЦИЯ: Получение выполнения привычек за месяц
-export const fetchCompletionsForMonth = async (year: number, month: number): Promise<HabitCompletion[]> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
-
-    // Создаем начальную и конечную даты месяца в формате YYYY-MM-DD
-    const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0]; // month - 1 потому что JS Date от 0 до 11
-    const endDate = new Date(year, month, 0).toISOString().split('T')[0]; // День 0 следующего месяца дает последний день текущего
-
-    const { data, error } = await supabase
-        .from("habit_completions")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("completion_date", startDate)
-        .lte("completion_date", endDate);
-
-    if (error) {
-        console.error("Error fetching completions for month:", error);
-        throw error;
-    }
-    return (data || []) as HabitCompletion[];
-};
 
 /**
  * Обновляет или создает запись о выполнении привычки на определенную дату.
@@ -466,36 +418,6 @@ export const updateCompletion = async (habitId: string, date: string, count: num
     }
 };
 
-/**
- * Получает прогресс конкретной привычки за определенную дату.
- * @param habitId ID привычки.
- * @param date Строка даты в формате 'YYYY-MM-DD'.
- * @returns Количество выполнений привычки за указанную дату.
- */
-export const getHabitProgressForDate = async (habitId: string, date: string): Promise<number> => {
-    try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return 0;
-
-        const { data, error } = await supabase
-            .from("habit_completions")
-            .select("completed_count")
-            .eq("habit_id", habitId)
-            .eq("user_id", user.id)
-            .eq("completion_date", date)
-            .single();
-
-        if (error && error.code !== 'PGRST116') { // PGRST116 - это "No rows found"
-            console.error(`Error fetching progress for habit ${habitId} on date ${date}:`, error);
-            throw error;
-        }
-
-        return data?.completed_count || 0;
-    } catch (error) {
-        console.error("Failed to get habit progress for date:", error);
-        return 0;
-    }
-};
 
 // Функция для получения текущей даты в формате YYYY-MM-DD
 export const getTodayDateString = (): string => {

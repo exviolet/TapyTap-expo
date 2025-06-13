@@ -17,7 +17,11 @@ type Props = {
 };
 
 const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
-  const { colors } = useContext(ThemeContext);
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('WelcomeScreen must be used within a ThemeProvider');
+  }
+  const { colors } = context;
 
   const handleContinue = () => {
     navigation.navigate("Login");

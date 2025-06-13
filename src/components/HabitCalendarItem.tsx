@@ -12,7 +12,7 @@ import {
 // Маппинг иконок
 const iconMap: { [key: string]: React.ComponentType<any> } = {
     Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart, Check,
-    Lightbulb, Bell, Archive, Clock, PlusCircle, MinusCircle
+    Lightbulb, Bell, Archive, Clock, PlusCircle, MinusCircle, Slash, XCircle
 };
 
 interface HabitCalendarItemProps {
@@ -21,10 +21,14 @@ interface HabitCalendarItemProps {
 }
 
 export default function HabitCalendarItem({ habit, onPress }: HabitCalendarItemProps) {
-    const { colors } = useContext(ThemeContext);
+    const context = useContext(ThemeContext);
+    if (!context) {
+        throw new Error('HabitCalendarItem must be used within a ThemeProvider');
+    }
+    const { colors } = context;
 
     const targetCompletions = habit.target_completions || 1;
-    const currentProgress = habit.progress; // Это progress за выбранную дату, который уже должен быть подставлен
+    const currentProgress = habit.target_completions; // Это progress за выбранную дату, который уже должен быть подставлен
 
     const isCompleted = currentProgress >= targetCompletions && targetCompletions > 0;
     const isPartial = currentProgress > 0 && currentProgress < targetCompletions;

@@ -16,7 +16,11 @@ type Props = {
 };
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
-  const { colors } = useContext(ThemeContext);
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('LoginScreen must be used within a ThemeProvider');
+  }
+  const { colors } = context;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);

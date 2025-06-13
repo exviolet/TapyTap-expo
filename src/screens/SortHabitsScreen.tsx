@@ -21,7 +21,11 @@ type SortHabitsScreenRouteProp = RouteProp<RootStackParamList, 'SortHabits'>;
 type NavigationProp = StackNavigationProp<RootStackParamList, 'SortHabits'>;
 
 export default function SortHabitsScreen() {
-    const { colors } = useContext(ThemeContext);
+    const context = useContext(ThemeContext);
+    if (!context) {
+        throw new Error('SortHabitsScreen must be used within a ThemeProvider');
+    }
+    const { colors } = context;
     const navigation = useNavigation<NavigationProp>();
     const route = useRoute<SortHabitsScreenRouteProp>();
     const { categoryId, categoryName } = route.params;

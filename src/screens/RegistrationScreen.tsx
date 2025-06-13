@@ -14,9 +14,12 @@ type RootStackParamList = {
 type Props = {
   navigation: StackNavigationProp<RootStackParamList, "Register">;
 };
-
 const RegistrationScreen: React.FC<Props> = ({ navigation }) => {
-  const { colors } = useContext(ThemeContext);
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('RegistrationScreen must be used within a ThemeProvider');
+  }
+  const { colors } = context;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

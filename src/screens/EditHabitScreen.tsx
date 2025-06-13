@@ -34,9 +34,15 @@ const availableIcons = [
     'Book', 'Activity', 'GraduationCap', 'Briefcase', 'Music', 'Coffee', 'Sun', 'Moon', 'Star', 'Heart',
     'Lightbulb', 'Bell', 'Archive', 'Clock'
 ];
-
 export default function EditHabitScreen() {
-    const { colors = { background: "#1A1A2E", text: "#FFFFFF", accent: "#6A0DAD", inputBackground: "#2A2A3E", inputBorder: "#3A3A5C" } } = useContext(ThemeContext);
+    const theme = useContext(ThemeContext);
+    const colors = theme?.colors || { 
+        background: "#1A1A2E", 
+        text: "#FFFFFF", 
+        accent: "#6A0DAD", 
+        inputBackground: "#2A2A3E", 
+        inputBorder: "#3A3A5C" 
+    };
     const navigation = useNavigation<EditHabitScreenNavigationProp>();
     const route = useRoute<EditHabitScreenRouteProp>();
 

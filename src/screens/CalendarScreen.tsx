@@ -1,229 +1,141 @@
 // src/screens/CalendarScreen.tsx
-import React, { useState, useEffect, useContext, useCallback } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, FlatList, RefreshControl } from "react-native";
-import { Calendar } from "react-native-calendars";
-import { DateData, MarkedDates } from "react-native-calendars/src/types";
-import { ThemeContext, ColorPalette } from "../components/ThemeProvider"; // <-- ДОБАВЛЕНО: Импорт ColorPalette
-import { fetchHabits, fetchCompletionsForDate, Habit, HabitCompletion, fetchCompletionsForMonth } from "../lib/habits";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { StackNavigationProp } from "@react-navigation/stack";
-import HabitCalendarItem from "../components/HabitCalendarItem";
+import React, { useState, useEffect, useContext, useCallback, useMemo } from "react";
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from "react-native";
+import { Calendar, DateData, LocaleConfig } from "react-native-calendars";
+import { useFocusEffect } from "@react-navigation/native";
+import { ThemeContext } from "../components/ThemeProvider";
+import { useHabitStore } from "../store/useHabitStore";
+import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns'; // ИСПРАВЛЕНО: Добавлен parseISO
+import { ru } from 'date-fns/locale';
+import { Check, X } from "lucide-react-native";
+import { useAuth } from '../contexts/AuthContext';
 
-// Определяем типы для навигации
-type RootStackParamList = {
-    HabitsStack: undefined; // Наш стек привычек
-    EditHabit: { habit: Habit };
+// Настройка локализации для календаря
+LocaleConfig.locales['ru'] = {
+  monthNames: ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'],
+  monthNamesShort: ['Янв.','Фев.','Март','Апр.','Май','Июнь','Июль','Авг.','Сен.','Окт.','Ноя.','Дек.'],
+  dayNames: ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'],
+  dayNamesShort: ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'],
+  today: 'Сегодня'
 };
-
-type NavigationProp = StackNavigationProp<RootStackParamList, "HabitsStack">;
-
+LocaleConfig.defaultLocale = 'ru';
 
 export default function CalendarScreen() {
-    const { colors } = useContext(ThemeContext);
-    const navigation = useNavigation<NavigationProp>();
+    const { colors } = useContext(ThemeContext)!;
+    const { habits, habitCompletions, isLoading, fetchHabits, fetchHabitCompletions, updateHabitProgress } = useHabitStore();
+    const { user } = useAuth();
+    
+    const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]); // Текущая дата
-    const [habits, setHabits] = useState<Habit[]>([]);
-    // const [completions, setCompletions] = useState<HabitCompletion[]>([]); // Это больше не нужно хранить отдельно, данные используются в habitsWithProgress
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-
-    const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1); // 1-12
-    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-    const [allMonthCompletions, setAllMonthCompletions] = useState<HabitCompletion[]>([]);
-    const [markedDates, setMarkedDates] = useState<MarkedDates>({});
-
-
-    // Функция для обработки нажатия на дату
-    const onDayPress = useCallback((day: DateData) => {
-        setSelectedDate(day.dateString);
-    }, []);
-
-    // Функция для формирования markedDates с кружками
-    const generateMarkedDates = useCallback((
-        selected: string,
-        monthCompletions: HabitCompletion[],
-        allHabits: Habit[],
-        colors: ColorPalette // <-- ТИП ColorPalette ТЕПЕРЬ ИМПОРТИРОВАН
-    ): MarkedDates => {
-        const marks: MarkedDates = {
-            [selected]: {
-                selected: true,
-                selectedColor: colors.accent,
-                selectedTextColor: colors.text,
-            },
-        };
-
-        const dailyCompletionsMap: { [date: string]: { [habitId: string]: number } } = {};
-
-        monthCompletions.forEach(comp => {
-            if (!dailyCompletionsMap[comp.completion_date]) {
-                dailyCompletionsMap[comp.completion_date] = {};
-            }
-            dailyCompletionsMap[comp.completion_date][comp.habit_id] = comp.completed_count;
-        });
-
-        for (const dateString in dailyCompletionsMap) {
-            if (dateString === selected) continue; // Не переопределяем выбранный день
-
-            let totalExpectedForDay = 0;
-            let totalCompletedForDay = 0;
-
-            allHabits.forEach(habit => {
-                // Учитываем только активные (неархивированные) привычки, если у вас есть такое поле
-                // if (!habit.archived) { // Если у вас есть поле archived
-                    const completedCount = dailyCompletionsMap[dateString][habit.id] || 0;
-                    totalExpectedForDay += habit.target_completions || 1;
-                    totalCompletedForDay += completedCount;
-                // }
-            });
-
-            const completionPercentage = totalExpectedForDay > 0 ? (totalCompletedForDay / totalExpectedForDay) : 0;
-
-            let dotColor = colors.progressRed;
-            if (completionPercentage >= 1) {
-                dotColor = colors.progressGreen;
-            } else if (completionPercentage > 0) {
-                dotColor = colors.progressYellow;
-            } else {
-                dotColor = colors.progressRed;
-            }
-
-            marks[dateString] = {
-                marked: true,
-                dotColor: dotColor,
-                // Для стилизации кружка, если хотите, чтобы он был не точкой, а залитым кругом:
-                customStyles: {
-                    container: {
-                        backgroundColor: dotColor,
-                        borderRadius: 15, // Делаем круг
-                        width: 25, // Размер кружка
-                        height: 25, // Размер кружка
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                    },
-                    text: {
-                        color: colors.text, // Цвет текста даты внутри кружка
-                        fontWeight: 'bold'
-                    }
-                }
-            };
-        }
-        return marks;
-    }, [colors]);
-
-    // Главная функция загрузки данных
-    const fetchAllData = useCallback(async (dateToFetch: string, monthToFetch: number, yearToFetch: number) => {
-        setLoading(true);
-        try {
-            const fetchedHabits = await fetchHabits();
-            const fetchedCompletions = await fetchCompletionsForDate(dateToFetch);
-            const monthCompletions = await fetchCompletionsForMonth(yearToFetch, monthToFetch);
-
-            // Для отображения под календарем
-            const habitsWithProgress = fetchedHabits.map(habit => {
-                const completion = fetchedCompletions.find(comp => comp.habit_id === habit.id);
-                return {
-                    ...habit,
-                    progress: completion ? completion.completed_count : 0,
-                };
-            });
-
-            setHabits(habitsWithProgress);
-            setAllMonthCompletions(monthCompletions);
-
-            // Генерируем markedDates после получения всех данных
-            setMarkedDates(generateMarkedDates(selectedDate, monthCompletions, fetchedHabits, colors));
-
-        } catch (error) {
-            console.error("Error fetching data for CalendarScreen:", error);
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    }, [selectedDate, generateMarkedDates, colors]);
-
-
-    // Хук для фокуса на экране
     useFocusEffect(
         useCallback(() => {
-            // Вызываем fetchAllData при фокусе, но только если изменилась дата, месяц или год
-            fetchAllData(selectedDate, currentMonth, currentYear);
-        }, [selectedDate, currentMonth, currentYear, fetchAllData])
+            if (user?.id) {
+                fetchHabits(user.id);
+                const today = new Date();
+                const start = format(startOfMonth(today), 'yyyy-MM-dd');
+                const end = format(endOfMonth(today), 'yyyy-MM-dd');
+                fetchHabitCompletions(user.id, start, end);
+            }
+        }, [user?.id, fetchHabits, fetchHabitCompletions])
     );
+    
+    const { displayedHabits, markedDates } = useMemo(() => {
+        const completionsForSelectedDate = habitCompletions.filter(c => c.completion_date === selectedDate);
+        const habitsForDisplay = habits.map(habit => {
+            const record = completionsForSelectedDate.find(c => c.habit_id === habit.id);
+            return { ...habit, progress: record ? record.completed_count : 0 };
+        });
 
-    // При изменении месяца в календаре
-    const onMonthChange = useCallback((month: DateData) => {
-        setCurrentMonth(month.month);
-        setCurrentYear(month.year);
-        // fetchAllData будет вызван через useFocusEffect при изменении currentMonth/currentYear
-    }, []);
+        const newMarkedDates: { [key: string]: any } = {};
+        
+        // Группируем выполнения по датам
+        const completionsByDay: {[key: string]: boolean} = {};
+        habitCompletions.forEach(c => {
+            const day = c.completion_date;
+            const habit = habits.find(h => h.id === c.habit_id);
+            if (!habit) return;
+            // Если хотя бы одна привычка за день не выполнена, считаем день "неудачным"
+            if(c.completed_count < habit.target_completions){
+                completionsByDay[day] = false;
+            } else if(completionsByDay[day] === undefined) {
+                 completionsByDay[day] = true;
+            }
+        });
 
-    const onRefresh = useCallback(() => {
-        setRefreshing(true);
-        fetchAllData(selectedDate, currentMonth, currentYear);
-    }, [selectedDate, currentMonth, currentYear, fetchAllData]);
+        Object.keys(completionsByDay).forEach(day => {
+            newMarkedDates[day] = {
+                marked: true,
+                dotColor: completionsByDay[day] ? colors.progressGreen : colors.danger
+            }
+        });
+        
+        newMarkedDates[selectedDate] = { ...newMarkedDates[selectedDate], selected: true, selectedColor: colors.accent, disableTouchEvent: true };
 
-    // Обработчик для HabitCalendarItem
-    const handleEditHabit = (habit: Habit) => {
-        navigation.navigate("EditHabit", { habit: habit });
+        return { displayedHabits: habitsForDisplay, markedDates: newMarkedDates };
+    }, [selectedDate, habits, habitCompletions, colors]);
+
+    const onMonthChange = (month: DateData) => {
+        if (user?.id) {
+            const start = format(startOfMonth(new Date(month.dateString)), 'yyyy-MM-dd');
+            const end = format(endOfMonth(new Date(month.dateString)), 'yyyy-MM-dd');
+            fetchHabitCompletions(user.id, start, end);
+        }
     };
 
+    const renderHabitItem = ({ item }: { item: typeof habits[0] }) => {
+        const isCompleted = item.progress >= item.target_completions;
+        return (
+             <TouchableOpacity
+                style={[ styles.item, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+                onPress={() => {
+                    const newProgress = isCompleted ? 0 : item.target_completions;
+                    updateHabitProgress(item.id, newProgress, selectedDate);
+                }}
+            >
+                <Text style={[styles.itemName, { color: colors.text }]}>{item.name}</Text>
+                <View style={styles.itemProgressContainer}>
+                    <Text style={[styles.itemProgressText, { color: colors.textSecondary }]}>
+                        {`${item.progress}/${item.target_completions}`}
+                    </Text>
+                    {isCompleted ? <Check size={20} color={colors.progressGreen} /> : <X size={20} color={colors.danger} />}
+                </View>
+            </TouchableOpacity>
+        );
+    }
+    
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <View style={styles.headerContainer}>
+                <Text style={[styles.title, { color: colors.text }]}>Календарь</Text>
+            </View>
             <Calendar
-                onDayPress={onDayPress}
-                markedDates={markedDates}
+                current={selectedDate}
+                onDayPress={(day) => setSelectedDate(day.dateString)}
                 onMonthChange={onMonthChange}
-                // Настройка темы календаря
+                markedDates={markedDates}
+                markingType={'dot'}
                 theme={{
-                    backgroundColor: colors.background,
-                    calendarBackground: colors.cardBackground,
-                    textSectionTitleColor: colors.textFaded,
-                    selectedDayBackgroundColor: colors.accent,
-                    selectedDayTextColor: colors.text,
-                    todayTextColor: colors.accent,
+                    calendarBackground: colors.background,
                     dayTextColor: colors.text,
-                    textDisabledColor: colors.textFaded,
-                    dotColor: colors.accent, // Это будет переопределено customStyles.container.backgroundColor
-                    selectedDotColor: colors.text,
-                    arrowColor: colors.accent,
                     monthTextColor: colors.text,
-                    textMonthFontWeight: 'bold',
-                    textDayFontSize: 16,
-                    textMonthFontSize: 18,
-                    textDayHeaderFontSize: 14,
+                    textSectionTitleColor: colors.textSecondary,
+                    arrowColor: colors.accent,
+                    todayTextColor: colors.accent,
+                    selectedDayBackgroundColor: colors.accent,
+                    selectedDayTextColor: '#ffffff',
                 }}
-                // Стилизация недели теперь вне объекта theme, так как theme не поддерживает прямые стили stylesheet.*
-                // Вместо этого используем пропс style для компонента Calendar
-                style={[styles.calendar, { borderBottomColor: colors.border }]}
             />
-
-            <Text style={[styles.dateTitle, { color: colors.text }]}>
-                Привычки на {selectedDate}
+            <Text style={[styles.listHeader, { color: colors.text }]}>
+                Привычки на {format(parseISO(selectedDate), 'd MMMM yyyy', { locale: ru })}
             </Text>
-
-            {loading ? (
-                <ActivityIndicator size="large" color={colors.accent} style={styles.loadingIndicator} />
+            {isLoading && habits.length === 0 ? (
+                <ActivityIndicator color={colors.accent} style={{ marginTop: 20 }}/>
             ) : (
                 <FlatList
-                    data={habits}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                        <HabitCalendarItem
-                            habit={item}
-                            onPress={handleEditHabit}
-                        />
-                    )}
-                    contentContainerStyle={styles.habitListContent}
-                    ListEmptyComponent={() => (
-                        <Text style={[styles.emptyListText, { color: colors.textSecondary }]}>
-                            Нет привычек за этот день.
-                        </Text>
-                    )}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
-                    }
+                    data={displayedHabits}
+                    keyExtractor={item => item.id}
+                    renderItem={renderHabitItem}
+                    ListEmptyComponent={<Text style={{textAlign: 'center', color: colors.textSecondary, marginTop: 20}}>Нет привычек на этот день</Text>}
                 />
             )}
         </View>
@@ -231,40 +143,21 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    calendar: {
-        // Мы удалили внутренние стили `borderBottomWidth` и `borderBottomColor`
-        // из `theme` и перенесли их сюда.
-        // week стили не применимы напрямую к Calendar компоненту,
-        // они должны быть частью его внутренней темы, но поскольку это не работает,
-        // можно убрать их и стилизовать через общие свойства темы или кастомные компоненты.
-    },
-    // В данном случае, стили для week (разделитель дней недели)
-    // не могут быть применены напрямую через `style` компонента `Calendar`.
-    // Если вам нужен разделитель, то это должно быть в `theme` объекта,
-    // но react-native-calendars не поддерживает `stylesheet.calendar.header`.
-    // Вы можете обернуть календарь в View и применить borderBottom к этому View,
-    // или смириться с отсутствием этого разделителя.
-    dateTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginTop: 20,
-        marginBottom: 10,
+    container: { flex: 1 },
+    headerContainer: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 15 },
+    title: { fontSize: 28, fontWeight: "bold" },
+    listHeader: { fontSize: 18, fontWeight: '600', paddingHorizontal: 20, marginTop: 20, marginBottom: 10 },
+    item: {
+        borderRadius: 10,
+        padding: 15,
         marginHorizontal: 16,
-    },
-    loadingIndicator: {
-        flex: 1,
-        justifyContent: 'center',
+        marginVertical: 6,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
+        borderWidth: 1,
     },
-    habitListContent: {
-        paddingBottom: 20,
-    },
-    emptyListText: {
-        textAlign: 'center',
-        marginTop: 20,
-        fontSize: 16,
-    },
+    itemName: { fontSize: 16, fontWeight: '600' },
+    itemProgressContainer: { flexDirection: 'row', alignItems: 'center' },
+    itemProgressText: { fontSize: 14, marginRight: 8 },
 });

@@ -40,9 +40,15 @@ type RootStackParamList = {
 };
 
 type NavigationProp = StackNavigationProp<RootStackParamList, "AddHabit">;
-
 const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }) => {
-    const { colors = { background: "#1A1A2E", text: "#FFFFFF", accent: "#6A0DAD", inputBackground: "#2A2A3E", inputBorder: "#3A3A5C" } } = useContext(ThemeContext);
+    const theme = useContext(ThemeContext);
+    const colors = theme?.colors || { 
+        background: "#1A1A2E", 
+        text: "#FFFFFF", 
+        accent: "#6A0DAD", 
+        inputBackground: "#2A2A3E", 
+        inputBorder: "#3A3A5C" 
+    };
 
     // Состояния для полей формы привычки
     const [name, setName] = useState("");
@@ -193,7 +199,7 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
                     name: name.trim(),
                     description: description.trim(),
                     frequency: reminderTimes, // Используем отформатированные напоминания
-                    progress: 0,
+                    progress: 0, // Добавляем обязательное поле progress
                     goal_series: goalSeriesValue,
                     icon: habitIcon,
                     target_completions: targetCompletions,
