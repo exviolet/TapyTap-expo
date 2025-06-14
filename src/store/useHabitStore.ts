@@ -1,145 +1,147 @@
 // src/store/useHabitStore.ts
 import { create } from 'zustand';
 import { supabase } from '../supabase/supabaseClient';
-import { Habit, Category } from '../lib/habits'; // Убедитесь, что типы импортированы правильно
+import { Habit, Category } from '../lib/habits';
 import { format } from 'date-fns';
 
 export interface HabitCompletionRecord {
-  id: string; habit_id: string; completion_date: string; completed_count: number;
-  target_completions: number; user_id: string; created_at?: string; updated_at?: string;
+  id?: string; habit_id: string; completion_date: string; completed_count: number;
+  target_completions: number; user_id: string;
 }
 
 interface HabitState {
   habits: Habit[];
-  archivedHabits: Habit[]; // <-- НОВОЕ: для архива
+  archivedHabits: Habit[];
   habitCompletions: HabitCompletionRecord[];
   categories: Category[];
-  isLoading: boolean;
-  error: Error | null;
-  isLoadingHabits: boolean; // Отдельный флаг для привычек
-  isLoadingCategories: boolean; // Отдельный флаг для категорий
-
-  // Методы
+  isLoadingHabits: boolean;
+  isLoadingCategories: boolean;
+  
   fetchHabits: (userId: string) => Promise<void>;
-  fetchArchivedHabits: (userId: string) => Promise<void>; // <-- НОВОЕ
+  fetchArchivedHabits: (userId: string) => Promise<void>;
   fetchCategories: (userId: string) => Promise<void>;
-  fetchHabitCompletions: (userId: string, startDate?: string, endDate?: string) => Promise<void>;
+  fetchHabitCompletions: (userId: string, startDate?: string, endDate?: string) => Promise<void>; // <-- ВОТ ЭТА ФУНКЦИЯ
   updateHabitProgress: (habitId: string, newProgress: number, date: string) => Promise<void>;
-  archiveHabit: (habitId: string) => Promise<void>;      // <-- НОВОЕ
-  unarchiveHabit: (habitId: string) => Promise<void>;    // <-- НОВОЕ
-  deleteHabitPermanently: (habitId: string) => Promise<void>; // <-- НОВОЕ
-  deleteAllUserData: (userId: string) => Promise<void>;  // <-- НОВОЕ
+  archiveHabit: (habitId: string) => Promise<void>;
+  unarchiveHabit: (habitId: string) => Promise<void>;
+  deleteHabitPermanently: (habitId: string) => Promise<void>;
+  deleteAllUserData: (userId: string) => Promise<void>;
   deleteCategory: (categoryId: string) => Promise<void>;
+  updateHabitOrder: (habits: Habit[]) => Promise<void>;
 }
 
 export const useHabitStore = create<HabitState>((set, get) => ({
-  habits: [], archivedHabits: [], habitCompletions: [], categories: [], isLoading: false, error: null,   isLoadingHabits: false,
-  isLoadingCategories: false,
+  habits: [], archivedHabits: [], habitCompletions: [], categories: [],
+  isLoadingHabits: false, isLoadingCategories: false, error: null,
 
   fetchHabits: async (userId) => {
     set({ isLoadingHabits: true });
     try {
-      const { data, error } = await supabase.from('habits')
-        .select(`*, habit_categories(categories(*))`)
-        .eq('user_id', userId)
-        .eq('is_archived', false) // Загружаем только НЕ архивные
-        .order('order_index', { ascending: true });
-      if (error) throw error;
-      
-      const today = format(new Date(), 'yyyy-MM-dd');
-      const { data: completions } = await supabase.from('habit_completions').select('*').eq('user_id', userId).eq('completion_date', today);
-      
-      const habitsWithProgress = (data || []).map((h: any) => ({
+        const { data } = await supabase.from('habits').select(`*, habit_categories(categories(*))`).eq('user_id', userId).eq('is_archived', false).order('order_index');
+        const today = format(new Date(), 'yyyy-MM-dd');
+        const { data: completions } = await supabase.from('habit_completions').select('*').eq('user_id', userId).eq('completion_date', today);
+        const habitsWithProgress = (data || []).map((h: any) => ({
         ...h,
         categories: h.habit_categories.map((hc: any) => hc.categories).flat().filter(Boolean),
         progress: completions?.find(c => c.habit_id === h.id)?.completed_count || 0,
-      }));
-      set({ habits: habitsWithProgress, isLoading: false });
-    } catch (err: any) {
-    set({ isLoadingHabits: false });
+        }));
+        set({ habits: habitsWithProgress });
+    } finally {
+        set({ isLoadingHabits: false });
     }
   },
 
   fetchArchivedHabits: async (userId) => {
-    set({ isLoading: true });
+    set({ isLoadingHabits: true });
     try {
-        const { data, error } = await supabase.from('habits')
-            .select(`*, habit_categories(categories(*))`)
-            .eq('user_id', userId)
-            .eq('is_archived', true) // Загружаем только архивные
-            .order('updated_at', { ascending: false });
-        if(error) throw error;
-        const archived = (data || []).map((h: any) => ({
-            ...h,
-            categories: h.habit_categories.map((hc: any) => hc.categories).flat().filter(Boolean),
-        }));
+        const { data } = await supabase.from('habits').select(`*, habit_categories(categories(*))`).eq('user_id', userId).eq('is_archived', true).order('updated_at', { ascending: false });
+        const archived = (data || []).map((h: any) => ({ ...h, categories: h.habit_categories.map((hc: any) => hc.categories).flat().filter(Boolean) }));
         set({ archivedHabits: archived });
-    } catch(err: any) {
-        console.error("Error fetching archived habits", err);
     } finally {
-        set({ isLoading: false });
+        set({ isLoadingHabits: false });
     }
   },
-  
-  // Остальные fetch-функции без критических изменений...
-  fetchCategories: async (userId: string) => {
-    set({ isLoadingCategories: true }); // 1. Сообщаем, что загрузка НАЧАЛАСЬ
+
+  fetchCategories: async (userId) => {
+    set({ isLoadingCategories: true });
     try {
-        const { data, error } = await supabase
-            .from('categories')
-            .select('*')
-            .eq('user_id', userId)
-            .order('order_index', { ascending: true });
-
-        if (error) {
-            throw error;
-        }
-
+        const { data } = await supabase.from('categories').select('*').eq('user_id', userId).order('order_index');
         const staticCategories: Category[] = [
             { id: 'All', name: 'Все', color: '#6A0DAD', icon: 'LayoutGrid', user_id: userId, created_at: '', updated_at: '' },
             { id: 'Uncategorized', name: 'Без категории', color: '#707070', icon: 'XSquare', user_id: userId, created_at: '', updated_at: '' }
         ];
-
-        // 2. Обновляем состояние с полученными данными
         set({ categories: [...staticCategories, ...(data || [])] });
-
-    } catch (err: any) {
-        console.error("Error fetching categories:", err);
-        set({ error: err });
     } finally {
-        set({ isLoadingCategories: false }); // 3. Сообщаем, что загрузка ЗАВЕРШЕНА (в любом случае)
+        set({ isLoadingCategories: false });
     }
   },
-  fetchHabitCompletions: async (userId, startDate, endDate) => { /* ... */ },
-  updateHabitProgress: async (habitId, newProgress, date) => { /* ... */ },
-  deleteCategory: async (categoryId) => { /* ... */ },
 
-  archiveHabit: async (habitId) => { /* ... */ },
-  
-  unarchiveHabit: async (habitId) => {
-    const { error } = await supabase.from('habits').update({ is_archived: false }).eq('id', habitId);
-    if(error) { console.error(error); return; }
+  // ВОТ РЕАЛИЗАЦИЯ НЕДОСТАЮЩЕЙ ФУНКЦИИ
+  fetchHabitCompletions: async (userId, startDate, endDate) => {
+    try {
+      let query = supabase.from('habit_completions').select('*').eq('user_id', userId);
+      if (startDate) query = query.gte('completion_date', startDate);
+      if (endDate) query = query.lte('completion_date', endDate);
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      const existingCompletions = get().habitCompletions;
+      const newCompletionsMap = new Map(existingCompletions.map(c => [`${c.habit_id}_${c.completion_date}`, c]));
+      (data || []).forEach(c => newCompletionsMap.set(`${c.habit_id}_${c.completion_date}`, c));
+      
+      set({ habitCompletions: Array.from(newCompletionsMap.values()) });
+    } catch (err: any) {
+      console.error("Error fetching completions:", err);
+    }
+  },
+
+  updateHabitProgress: async (habitId, newProgress, date) => {
+    const habit = get().habits.find(h => h.id === habitId);
+    if (!habit) return;
     set(state => ({
-        archivedHabits: state.archivedHabits.filter(h => h.id !== habitId)
+        habits: state.habits.map(h => h.id === habitId ? { ...h, progress: newProgress } : h)
     }));
+    await supabase.from('habit_completions').upsert({
+        habit_id: habitId, completion_date: date, user_id: habit.user_id,
+        completed_count: newProgress, target_completions: habit.target_completions
+    }, { onConflict: 'habit_id,completion_date,user_id' });
+  },
+
+  archiveHabit: async (habitId) => {
+    set(state => ({ habits: state.habits.filter(h => h.id !== habitId) }));
+    await supabase.from('habits').update({ is_archived: true }).eq('id', habitId);
+  },
+
+  unarchiveHabit: async (habitId) => {
+    set(state => ({ archivedHabits: state.archivedHabits.filter(h => h.id !== habitId) }));
+    await supabase.from('habits').update({ is_archived: false }).eq('id', habitId);
+    get().fetchHabits(get().habits[0]?.user_id);
   },
 
   deleteHabitPermanently: async (habitId) => {
-    const { error } = await supabase.from('habits').delete().eq('id', habitId);
-    if(error) { console.error(error); return; }
-    set(state => ({
-        archivedHabits: state.archivedHabits.filter(h => h.id !== habitId)
-    }));
+    set(state => ({ archivedHabits: state.archivedHabits.filter(h => h.id !== habitId) }));
+    await supabase.from('habits').delete().eq('id', habitId);
   },
 
-  deleteAllUserData: async (userId) => {
-    // Эта операция ОЧЕНЬ опасна. В реальном приложении лучше использовать Edge Function.
-    console.log(`Deleting all data for user: ${userId}`);
-    const { error: e1 } = await supabase.from('habit_completions').delete().eq('user_id', userId);
-    const { error: e2 } = await supabase.from('habit_categories').delete().eq('user_id', userId);
-    const { error: e3 } = await supabase.from('categories').delete().eq('user_id', userId);
-    const { error: e4 } = await supabase.from('habits').delete().eq('user_id', userId);
-    if(e1 || e2 || e3 || e4) console.error("Error deleting all data", {e1, e2, e3, e4});
-    set({ habits: [], archivedHabits: [], categories: [], habitCompletions: [] });
+  deleteCategory: async (categoryId) => {
+    await supabase.from('habit_categories').delete().eq('category_id', categoryId);
+    await supabase.from('categories').delete().eq('id', categoryId);
+    set(state => ({ categories: state.categories.filter(c => c.id !== categoryId) }));
+    get().fetchHabits(get().habits[0]?.user_id);
+  },
+
+  updateHabitOrder: async (habits) => {
+    set({ habits });
+    const updates = habits.map((habit, index) => supabase.from('habits').update({ order_index: index }).eq('id', habit.id));
+    await Promise.all(updates);
+  },
+  
+  deleteAllUserData: async (userId: string) => {
+      console.log(`Deleting all data for user: ${userId}`);
+      await supabase.from('habit_completions').delete().eq('user_id', userId);
+      await supabase.from('habit_categories').delete().eq('user_id', userId);
+      await supabase.from('categories').delete().eq('user_id', userId);
+      await supabase.from('habits').delete().eq('user_id', userId);
+      set({ habits: [], archivedHabits: [], categories: [], habitCompletions: [] });
   }
 }));

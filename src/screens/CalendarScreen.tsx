@@ -22,7 +22,7 @@ LocaleConfig.defaultLocale = 'ru';
 
 export default function CalendarScreen() {
     const { colors } = useContext(ThemeContext)!;
-    const { habits, habitCompletions, isLoading, fetchHabits, fetchHabitCompletions, updateHabitProgress } = useHabitStore();
+    const { habits, habitCompletions, isLoadingHabits, fetchHabits, fetchHabitCompletions, updateHabitProgress } = useHabitStore();
     const { user } = useAuth();
     
     const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -128,7 +128,7 @@ export default function CalendarScreen() {
             <Text style={[styles.listHeader, { color: colors.text }]}>
                 Привычки на {format(parseISO(selectedDate), 'd MMMM yyyy', { locale: ru })}
             </Text>
-            {isLoading && habits.length === 0 ? (
+            {isLoadingHabits && habits.length === 0 ? (
                 <ActivityIndicator color={colors.accent} style={{ marginTop: 20 }}/>
             ) : (
                 <FlatList

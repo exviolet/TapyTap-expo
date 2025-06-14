@@ -44,7 +44,7 @@ const ArchivedHabitItem: React.FC<{ item: Habit }> = ({ item }) => {
 export default function ArchivedHabitsScreen() {
     const { colors } = useContext(ThemeContext)!;
     const { user } = useAuth();
-    const { archivedHabits, isLoading, fetchArchivedHabits } = useHabitStore();
+    const { archivedHabits, isLoadingHabits, fetchArchivedHabits } = useHabitStore();
     const navigation = useNavigation();
 
     useFocusEffect(useCallback(() => {
@@ -63,7 +63,7 @@ export default function ArchivedHabitsScreen() {
                 <View style={{ width: 28 }} />
             </View>
             
-            {isLoading ? (
+            {isLoadingHabits ? (
                 <ActivityIndicator style={{ marginTop: 50 }} size="large" color={colors.accent} />
             ) : (
                 <FlatList

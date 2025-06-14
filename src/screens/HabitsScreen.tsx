@@ -60,7 +60,7 @@ export default function HabitsScreen() {
     const navigation = useNavigation<NavigationProp>();
     const { user } = useAuth();
     // Убедимся, что используем правильные имена из хранилища
-    const { habits, categories, isLoading, fetchHabits, fetchCategories, archiveHabit, deleteCategory, updateHabitProgress } = useHabitStore();
+    const { habits, categories, isLoadingHabits, fetchHabits, fetchCategories, archiveHabit, deleteCategory, updateHabitProgress } = useHabitStore();
     
     const [selectedCategoryId, setSelectedCategoryId] = useState('All');
     const [currentDate, setCurrentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -70,6 +70,15 @@ export default function HabitsScreen() {
 
     useFocusEffect(useCallback(() => { if (user?.id) { fetchHabits(user.id); fetchCategories(user.id); } }, [user?.id, fetchHabits, fetchCategories]));
     
+    const handleSortHabits = () => {
+        setIsModalVisible(false); // Сначала закрываем модальное окно
+        const category = categories.find(c => c.id === selectedCategoryId);
+        // Передаем правильные параметры
+        navigation.navigate('SortHabits', { 
+            categoryId: selectedCategoryId,
+            categoryName: category ? category.name : 'Все' // Название категории для заголовка
+        });
+    }
     const onRefresh = useCallback(async () => {
         setIsRefreshing(true);
         if (user?.id) { await Promise.all([fetchHabits(user.id), fetchCategories(user.id)]); }
@@ -121,7 +130,7 @@ export default function HabitsScreen() {
 
             <CategoryFilter categories={categories} selectedCategoryId={selectedCategoryId} onSelectCategory={setSelectedCategoryId} onDeleteCategory={handleDeleteCategory} />
             
-            {isLoading && habits.length === 0 ? (
+            {isLoadingHabits && habits.length === 0 ? (
                 <View style={[styles.container, { justifyContent: 'center' }]}><ActivityIndicator size="large" color={colors.accent} /></View>
             ) : (
                 <FlatList
@@ -142,7 +151,7 @@ export default function HabitsScreen() {
                 <Pressable style={styles.modalOverlay} onPress={() => setIsModalVisible(false)}>
                     <View style={[styles.modalContent, { backgroundColor: colors.cardBackground, borderColor: colors.border, borderWidth: 1 }]}>
                         <Text style={[styles.modalHeader, { color: colors.text }]}>{selectedHabit?.name}</Text>
-                        <TouchableOpacity onPress={() => { /* ... */ }} style={[styles.modalButton, { backgroundColor: colors.inputBackground }]}>
+                        <TouchableOpacity onPress={handleSortHabits} style={[styles.modalButton, { backgroundColor: colors.inputBackground }]}>
                              <LucideIcons.ArrowUpDown size={20} color={colors.text} />
                              <Text style={[styles.modalButtonText, { color: colors.text }]}>Сортировать</Text>
                          </TouchableOpacity>

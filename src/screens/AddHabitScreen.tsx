@@ -203,6 +203,7 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
                     goal_series: goalSeriesValue,
                     icon: habitIcon,
                     target_completions: targetCompletions,
+                    is_archived: false,
                 },
                 selectedCategories.map(cat => cat.id) // Передаем только ID категорий
             );
