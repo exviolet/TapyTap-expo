@@ -32,6 +32,8 @@ export interface Habit {
     target_completions: number;
     is_archived: boolean;
     order_index?: number;
+    type: 'checkoff' | 'quantitative'; // <-- НОВОЕ ПОЛЕ
+    unit: string | null;              // <-- НОВОЕ ПОЛЕ
 }
 
 // Новый интерфейс для отметок о выполнении привычек
@@ -220,22 +222,22 @@ export const fetchHabits = async (): Promise<Habit[]> => {
     }
 };
 
+// ОБНОВЛЕННАЯ ФУНКЦИЯ ДОБАВЛЕНИЯ ПРИВЫЧКИ
 export const addHabit = async (
-    habitData: Omit<Habit, "id" | "user_id" | "created_at" | "updated_at" | "categories" | "order_index">,
+    // Тип Omit теперь включает новые поля `type` и `unit`
+    habitData: Omit<Habit, "id" | "user_id" | "created_at" | "updated_at" | "categories" | "progress" | "order_index">,
     categoryIds: string[] = []
 ): Promise<void> => {
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("User not authenticated");
 
-        const { data: maxOrderData, error: maxOrderError } = await supabase
+        const { data: maxOrderData } = await supabase
             .from('habits')
             .select('order_index')
             .eq("user_id", user.id)
             .order('order_index', { ascending: false })
             .limit(1);
-
-        if (maxOrderError) throw maxOrderError;
 
         const nextOrderIndex = (maxOrderData && maxOrderData.length > 0 && maxOrderData[0].order_index !== null)
             ? maxOrderData[0].order_index + 1
@@ -248,16 +250,18 @@ export const addHabit = async (
                 name: habitData.name,
                 description: habitData.description,
                 frequency: habitData.frequency,
-                // progress: habitData.progress, // <--- УДАЛЯЕМ ЭТУ СТРОКУ
                 goal_series: habitData.goal_series,
                 icon: habitData.icon,
                 target_completions: habitData.target_completions,
+                is_archived: false,
                 order_index: nextOrderIndex,
+                type: habitData.type, // <-- ДОБАВЛЕНО
+                unit: habitData.unit,   // <-- ДОБАВЛЕНО
             })
             .select()
             .single();
-
-        if (habitError || !newHabit) throw habitError;
+            
+        if (habitError || !newHabit) throw habitError || new Error("Failed to create habit");
 
         if (categoryIds.length > 0) {
             const relations = categoryIds.map((categoryId) => ({
@@ -268,8 +272,6 @@ export const addHabit = async (
             if (relationError) throw relationError;
         }
 
-        const updatedHabits = await fetchHabits();
-        await AsyncStorage.setItem(HABITS_KEY, JSON.stringify(updatedHabits));
     } catch (error) {
         console.error("Error adding habit:", error);
         throw error;

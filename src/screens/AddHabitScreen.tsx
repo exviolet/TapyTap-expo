@@ -50,6 +50,9 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
         inputBorder: "#3A3A5C" 
     };
 
+    const [habitType, setHabitType] = useState<'checkoff' | 'quantitative'>('checkoff');
+    const [unit, setUnit] = useState(''); // Для единиц измерения
+
     // Состояния для полей формы привычки
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
@@ -184,6 +187,10 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
             Alert.alert("Ошибка", "Название привычки не может быть пустым.");
             return;
         }
+        if (habitType === 'quantitative' && !unit.trim()) {
+            Alert.alert("Ошибка", "Укажите единицу измерения (например, 'раз', 'стр.', 'км').");
+            return;
+        }
         if (targetCompletions <= 0) {
             Alert.alert("Ошибка", "Целевое количество выполнений должно быть больше 0.");
             return;
@@ -194,19 +201,19 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
 
         setLoading(true);
         try {
-            await addHabit(
-                {
-                    name: name.trim(),
-                    description: description.trim(),
-                    frequency: reminderTimes, // Используем отформатированные напоминания
-                    progress: 0, // Добавляем обязательное поле progress
-                    goal_series: goalSeriesValue,
-                    icon: habitIcon,
-                    target_completions: targetCompletions,
-                    is_archived: false,
-                },
-                selectedCategories.map(cat => cat.id) // Передаем только ID категорий
-            );
+            await addHabit({
+                name: name.trim(),
+                description: description.trim(),
+                frequency: reminderTimes,
+                progress: 0, // Добавляем обязательное поле progress
+                goal_series: goalSeriesValue,
+                icon: habitIcon,
+                target_completions: targetCompletions,
+                is_archived: false,
+                type: habitType, // <-- Передаем тип
+                unit: habitType === 'quantitative' ? unit.trim() : null, // <-- Передаем единицу измерения
+            }, selectedCategories.map(cat => cat.id));
+            
             Alert.alert("Успех", "Привычка успешно добавлена!");
             navigation.goBack();
         } catch (error) {
@@ -226,6 +233,24 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
             <ScrollView contentContainerStyle={styles.scrollViewContent}>
                 <Text style={[styles.title, { color: colors.text }]}>Добавить привычку</Text>
 
+                <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground }]}>
+                    <Text style={[styles.label, { color: colors.text }]}>Тип привычки</Text>
+                    <View style={styles.segmentedControl}>
+                        <TouchableOpacity
+                            style={[styles.segmentButton, habitType === 'checkoff' && { backgroundColor: colors.accent }]}
+                            onPress={() => setHabitType('checkoff')}
+                        >
+                            <Text style={[styles.segmentText, { color: habitType === 'checkoff' ? '#FFF' : colors.text }]}>Выполнено / Не выполнено</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.segmentButton, habitType === 'quantitative' && { backgroundColor: colors.accent }]}
+                            onPress={() => setHabitType('quantitative')}
+                        >
+                            <Text style={[styles.segmentText, { color: habitType === 'quantitative' ? '#FFF' : colors.text }]}>Количественная</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
                 <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
                     <Text style={[styles.label, { color: colors.text }]}>Название привычки</Text>
                     <TextInput
@@ -236,6 +261,7 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
                         placeholderTextColor={colors.text + '80'}
                     />
                 </View>
+
 
                 <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
                     <Text style={[styles.label, { color: colors.text }]}>Описание </Text>
@@ -250,28 +276,18 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
                     />
                 </View>
 
-                <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-                    <Text style={[styles.label, { color: colors.text }]}>Цель серии</Text>
-                    <View style={styles.goalSeriesContainer}>
-                        {['Ежедневно', 'Неделя', 'Месяц'].map((option) => (
-                            <TouchableOpacity
-                                key={option}
-                                style={[
-                                    styles.goalSeriesButton,
-                                    {
-                                        backgroundColor: goalSeries === option ? colors.accent : 'transparent',
-                                        borderColor: colors.inputBorder,
-                                    },
-                                ]}
-                                onPress={() => setGoalSeries(option)}
-                            >
-                                <Text style={[styles.goalSeriesButtonText, { color: goalSeries === option ? '#FFFFFF' : colors.text }]}>
-                                    {option}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
+                {habitType === 'quantitative' && (
+                    <>
+                    <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground }]}>
+                        <Text style={[styles.label, { color: colors.text }]}>Единица измерения</Text>
+                        <TextInput
+                            style={[styles.input, { color: colors.text }]}
+                            value={unit}
+                            onChangeText={setUnit}
+                            placeholder="Например: раз, стр., км, минут"
+                            placeholderTextColor={colors.text + '80'}
+                        />
                     </View>
-                </View>
 
                 <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
                     <Text style={[styles.label, { color: colors.text }]}>Целевое количество выполнений</Text>
@@ -299,6 +315,32 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
                         </TouchableOpacity>
                     </View>
                 </View>
+                    </>
+                )}
+
+                <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+                    <Text style={[styles.label, { color: colors.text }]}>Цель серии</Text>
+                    <View style={styles.goalSeriesContainer}>
+                        {['Ежедневно', 'Неделя', 'Месяц'].map((option) => (
+                            <TouchableOpacity
+                                key={option}
+                                style={[
+                                    styles.goalSeriesButton,
+                                    {
+                                        backgroundColor: goalSeries === option ? colors.accent : 'transparent',
+                                        borderColor: colors.inputBorder,
+                                    },
+                                ]}
+                                onPress={() => setGoalSeries(option)}
+                            >
+                                <Text style={[styles.goalSeriesButtonText, { color: goalSeries === option ? '#FFFFFF' : colors.text }]}>
+                                    {option}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </View>
+
 
                 <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
                     <Text style={[styles.label, { color: colors.text, marginBottom: 10 }]}>Иконка привычки</Text>
@@ -696,6 +738,9 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '600',
     },
+    segmentedControl: { flexDirection: 'row', backgroundColor: '#7676801F', borderRadius: 8, padding: 2 },
+    segmentButton: { flex: 1, paddingVertical: 8, borderRadius: 6, alignItems: 'center' },
+    segmentText: { fontSize: 14, fontWeight: '600' },
     // Стили для напоминаний
     remindersContainer: {
         flexDirection: 'row',
