@@ -5,7 +5,7 @@ import { Calendar, DateData, LocaleConfig } from "react-native-calendars";
 import { useFocusEffect } from "@react-navigation/native";
 import { ThemeContext } from "../components/ThemeProvider";
 import { useHabitStore } from "../store/useHabitStore";
-import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns'; // ИСПРАВЛЕНО: Добавлен parseISO
+import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Check, X } from "lucide-react-native";
 import { useAuth } from '../contexts/AuthContext';
@@ -21,7 +21,7 @@ LocaleConfig.locales['ru'] = {
 LocaleConfig.defaultLocale = 'ru';
 
 export default function CalendarScreen() {
-    const { colors } = useContext(ThemeContext)!;
+    const { colors, theme } = useContext(ThemeContext)!; // Достаем `theme` для ключа
     const { habits, habitCompletions, isLoadingHabits, fetchHabits, fetchHabitCompletions, updateHabitProgress } = useHabitStore();
     const { user } = useAuth();
     
@@ -36,25 +36,34 @@ export default function CalendarScreen() {
                 const end = format(endOfMonth(today), 'yyyy-MM-dd');
                 fetchHabitCompletions(user.id, start, end);
             }
-        }, [user?.id, fetchHabits, fetchHabitCompletions])
+        }, [user?.id])
     );
     
     const { displayedHabits, markedDates } = useMemo(() => {
         const completionsForSelectedDate = habitCompletions.filter(c => c.completion_date === selectedDate);
-        const habitsForDisplay = habits.map(habit => {
+        
+        // Фильтруем привычки, которые были созданы до или в выбранный день
+        const activeHabitsForDay = habits.filter(habit => {
+            const habitCreationDate = parseISO(habit.created_at);
+            const currentSelectedDate = parseISO(selectedDate);
+            habitCreationDate.setHours(0, 0, 0, 0);
+            currentSelectedDate.setHours(0, 0, 0, 0);
+            return habitCreationDate <= currentSelectedDate;
+        });
+
+        const habitsForDisplay = activeHabitsForDay.map(habit => {
             const record = completionsForSelectedDate.find(c => c.habit_id === habit.id);
             return { ...habit, progress: record ? record.completed_count : 0 };
         });
 
         const newMarkedDates: { [key: string]: any } = {};
         
-        // Группируем выполнения по датам
+        // Логика маркеров для дней
         const completionsByDay: {[key: string]: boolean} = {};
         habitCompletions.forEach(c => {
             const day = c.completion_date;
             const habit = habits.find(h => h.id === c.habit_id);
             if (!habit) return;
-            // Если хотя бы одна привычка за день не выполнена, считаем день "неудачным"
             if(c.completed_count < habit.target_completions){
                 completionsByDay[day] = false;
             } else if(completionsByDay[day] === undefined) {
@@ -109,6 +118,7 @@ export default function CalendarScreen() {
                 <Text style={[styles.title, { color: colors.text }]}>Календарь</Text>
             </View>
             <Calendar
+                key={theme} // <-- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: заставляет календарь перерисоваться при смене темы
                 current={selectedDate}
                 onDayPress={(day) => setSelectedDate(day.dateString)}
                 onMonthChange={onMonthChange}
@@ -123,6 +133,7 @@ export default function CalendarScreen() {
                     todayTextColor: colors.accent,
                     selectedDayBackgroundColor: colors.accent,
                     selectedDayTextColor: '#ffffff',
+                    textDisabledColor: colors.textFaded // Добавил недостающий цвет для неактивных дней
                 }}
             />
             <Text style={[styles.listHeader, { color: colors.text }]}>

@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     headerButton: { padding: 8 },
     headerRightContainer: { flexDirection: 'row', alignItems: 'center', gap: 0 },
     screenTitle: { fontSize: 22, fontWeight: 'bold' },
-    categoryFilterContainer: { borderBottomWidth: 1, borderBottomColor: '#EAEAEA', minHeight: 50, justifyContent: 'center' },
+    categoryFilterContainer: { borderBottomColor: '#EAEAEA', minHeight: 50, justifyContent: 'center' },
     categoryScroll: { paddingHorizontal: 16, paddingVertical: 10, alignItems: 'center' },
     categoryChip: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, marginRight: 10, borderWidth: 1.5 },
     categoryChipIcon: { marginRight: 8 },
