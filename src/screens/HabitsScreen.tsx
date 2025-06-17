@@ -109,7 +109,7 @@ export default function HabitsScreen() {
 
     const renderHabitItem = useCallback(({ item }: { item: Habit }) => (
         <Animated.View entering={FadeIn} exiting={FadeOut}>
-            <HabitCard habit={item} onUpdateProgress={handleUpdateProgress} onLongPress={handleHabitLongPress} onPress={handleHabitPress} currentDate={currentDate} />
+            <HabitCard habit={item} onUpdateProgress={handleUpdateProgress} onLongPress={handleHabitLongPress} onPress={handleHabitPress} />
         </Animated.View>
     ), [handleUpdateProgress, handleHabitLongPress, handleHabitPress, currentDate]);
 
@@ -121,9 +121,6 @@ export default function HabitsScreen() {
                  </TouchableOpacity>
                  <Text style={[styles.screenTitle, { color: colors.text }]}>Мои привычки</Text>
                  <View style={styles.headerRightContainer}>
-                     <TouchableOpacity onPress={() => navigation.navigate("AddHabit")} style={styles.headerButton}>
-                         <LucideIcons.Plus size={28} color={colors.text} />
-                     </TouchableOpacity>
                      <ModeToggle />
                  </View>
             </View>

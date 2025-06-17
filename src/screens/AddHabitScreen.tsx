@@ -233,7 +233,7 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
             <ScrollView contentContainerStyle={styles.scrollViewContent}>
                 <Text style={[styles.title, { color: colors.text }]}>Добавить привычку</Text>
 
-                <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground }]}>
+                <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
                     <Text style={[styles.label, { color: colors.text }]}>Тип привычки</Text>
                     <View style={styles.segmentedControl}>
                         <TouchableOpacity
@@ -278,7 +278,7 @@ const AddHabitScreen: React.FC<{ navigation: NavigationProp }> = ({ navigation }
 
                 {habitType === 'quantitative' && (
                     <>
-                    <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground }]}>
+                    <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
                         <Text style={[styles.label, { color: colors.text }]}>Единица измерения</Text>
                         <TextInput
                             style={[styles.input, { color: colors.text }]}
