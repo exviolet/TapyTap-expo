@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { supabase } from '../supabase/supabaseClient';
 import { Habit, Category } from '../lib/habits';
-import { format } from 'date-fns';
+import { format, subDays, differenceInCalendarDays  } from 'date-fns';
 
 export interface HabitCompletionRecord {
   id?: string; habit_id: string; completion_date: string; completed_count: number;
@@ -28,11 +28,14 @@ interface HabitState {
   deleteAllUserData: (userId: string) => Promise<void>;
   deleteCategory: (categoryId: string) => Promise<void>;
   updateHabitOrder: (habits: Habit[]) => Promise<void>;
+  streaks: Map<string, number>; // <-- Новое состояние для хранения стриков
+  calculateStreaks: (userId: string) => Promise<void>; // <-- Новая функция
 }
 
 export const useHabitStore = create<HabitState>((set, get) => ({
   habits: [], archivedHabits: [], habitCompletions: [], categories: [],
   isLoadingHabits: false, isLoadingCategories: false, error: null,
+    streaks: new Map(),
 
   fetchHabits: async (userId) => {
     set({ isLoadingHabits: true });
@@ -94,6 +97,58 @@ export const useHabitStore = create<HabitState>((set, get) => ({
       console.error("Error fetching completions:", err);
     }
   },
+
+    // НОВАЯ ФУНКЦИЯ ДЛЯ РАСЧЕТА СТРИКОВ
+    calculateStreaks: async (userId: string) => {
+        const { data: completions } = await supabase
+            .from('habit_completions')
+            .select('habit_id, completion_date, completed_count')
+            .eq('user_id', userId)
+            .order('completion_date', { ascending: false });
+
+        if (!completions) return;
+
+        const habits = get().habits;
+        const streaks = new Map<string, number>();
+
+        for (const habit of habits) {
+            const habitCompletions = completions
+                .filter(c => c.habit_id === habit.id && c.completed_count >= habit.target_completions)
+                .map(c => new Date(c.completion_date));
+            
+            if (habitCompletions.length === 0) {
+                streaks.set(habit.id, 0);
+                continue;
+            }
+
+            let currentStreak = 0;
+            let today = new Date();
+            let lastDate = new Date();
+
+            // Проверяем, было ли выполнение сегодня или вчера
+            const diffFromToday = differenceInCalendarDays(today, habitCompletions[0]);
+            if (diffFromToday > 1) {
+                streaks.set(habit.id, 0); // Стрик прерван
+                continue;
+            }
+
+            // Если было, начинаем считать
+            currentStreak = 1;
+            lastDate = habitCompletions[0];
+
+            for (let i = 1; i < habitCompletions.length; i++) {
+                const currentDate = habitCompletions[i];
+                if (differenceInCalendarDays(lastDate, currentDate) === 1) {
+                    currentStreak++;
+                    lastDate = currentDate;
+                } else {
+                    break; // Серия прервана
+                }
+            }
+            streaks.set(habit.id, currentStreak);
+        }
+        set({ streaks });
+    },
 
   updateHabitProgress: async (habitId, newProgress, date) => {
     const habit = get().habits.find(h => h.id === habitId);

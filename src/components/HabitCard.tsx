@@ -8,6 +8,7 @@ import * as LucideIcons from "lucide-react-native";
 
 interface HabitCardProps {
     habit: Habit;
+    streak: number;
     onUpdateProgress: (habitId: string, newProgress: number) => void;
     onLongPress: (habit: Habit) => void;
     onPress: (habit: Habit) => void;
@@ -15,7 +16,7 @@ interface HabitCardProps {
 
 const iconMap: any = LucideIcons;
 
-const HabitCard: React.FC<HabitCardProps> = ({ habit, onUpdateProgress, onLongPress }) => {
+const HabitCard: React.FC<HabitCardProps> = ({ habit, streak, onUpdateProgress, onLongPress }) => {
     const { colors } = useContext(ThemeContext)!;
     const isCompleted = habit.progress >= habit.target_completions;
 
@@ -41,7 +42,16 @@ const HabitCard: React.FC<HabitCardProps> = ({ habit, onUpdateProgress, onLongPr
                 </View>
 
                 <View style={styles.detailsContainer}>
-                    <Text style={[styles.habitName, { color: colors.text }]}>{habit.name}</Text>
+                    <View style={styles.titleContainer}>
+                        <Text style={[styles.habitName, { color: colors.text }]}>{habit.name}</Text>
+                        {/* НОВЫЙ ЭЛЕМЕНТ: ОТОБРАЖЕНИЕ СТРИКА */}
+                        {streak > 1 && (
+                            <View style={styles.streakContainer}>
+                                <LucideIcons.Flame size={14} color="#FF9500" />
+                                <Text style={styles.streakText}>{streak}</Text>
+                            </View>
+                        )}
+                    </View>
                     <Text style={[styles.categoryText, { color: colors.textFaded }]} numberOfLines={1}>
                         {habit.categories && habit.categories.length > 0
                             ? habit.categories.map(c => c.name).join(' • ')
@@ -83,7 +93,29 @@ const styles = StyleSheet.create({
     card: { flexDirection: 'row', padding: 12, borderRadius: 16, alignItems: 'center', borderWidth: 1 },
     iconContainer: { width: 52, height: 52, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
     detailsContainer: { flex: 1, justifyContent: 'center' },
-    habitName: { fontSize: 17, fontWeight: '600', marginBottom: 4 },
+    titleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    habitName: {
+        fontSize: 17,
+        fontWeight: '600',
+        marginRight: 8,
+    },
+    streakContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 149, 0, 0.15)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 8,
+    },
+    streakText: {
+        color: '#FF9500',
+        fontSize: 12,
+        fontWeight: '700',
+        marginLeft: 4,
+    },
     categoryText: { fontSize: 13, marginBottom: 8 },
     progressBar: { height: 5, borderRadius: 2.5, overflow: 'hidden' },
     progressFill: { height: '100%' },

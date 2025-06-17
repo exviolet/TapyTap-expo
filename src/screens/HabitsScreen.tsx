@@ -60,7 +60,7 @@ export default function HabitsScreen() {
     const navigation = useNavigation<NavigationProp>();
     const { user } = useAuth();
     // Убедимся, что используем правильные имена из хранилища
-    const { habits, categories, isLoadingHabits, fetchHabits, fetchCategories, archiveHabit, deleteCategory, updateHabitProgress } = useHabitStore();
+    const { habits, categories, isLoadingHabits, fetchHabits, fetchCategories, archiveHabit, deleteCategory, updateHabitProgress, streaks, calculateStreaks, } = useHabitStore();
     
     const [selectedCategoryId, setSelectedCategoryId] = useState('All');
     const [currentDate, setCurrentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -68,7 +68,17 @@ export default function HabitsScreen() {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
 
-    useFocusEffect(useCallback(() => { if (user?.id) { fetchHabits(user.id); fetchCategories(user.id); } }, [user?.id, fetchHabits, fetchCategories]));
+    useFocusEffect(
+        useCallback(() => {
+            if (user?.id) {
+                fetchHabits(user.id).then(() => {
+                    // Рассчитываем стрики ПОСЛЕ загрузки привычек
+                    calculateStreaks(user.id);
+                });
+                fetchCategories(user.id);
+            }
+        }, [user?.id, fetchHabits, fetchCategories, calculateStreaks])
+    );
     
     const handleSortHabits = () => {
         setIsModalVisible(false); // Сначала закрываем модальное окно
@@ -109,9 +119,9 @@ export default function HabitsScreen() {
 
     const renderHabitItem = useCallback(({ item }: { item: Habit }) => (
         <Animated.View entering={FadeIn} exiting={FadeOut}>
-            <HabitCard habit={item} onUpdateProgress={handleUpdateProgress} onLongPress={handleHabitLongPress} onPress={handleHabitPress} />
+            <HabitCard habit={item} onUpdateProgress={handleUpdateProgress} onLongPress={handleHabitLongPress} onPress={handleHabitPress} streak={streaks.get(item.id) || 0} />
         </Animated.View>
-    ), [handleUpdateProgress, handleHabitLongPress, handleHabitPress, currentDate]);
+    ), [handleUpdateProgress, handleHabitLongPress, handleHabitPress, currentDate, streaks]);
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
