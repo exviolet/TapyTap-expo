@@ -15,8 +15,10 @@ interface HabitState {
   habitCompletions: HabitCompletionRecord[];
   categories: Category[];
   isLoadingHabits: boolean;
-  isLoadingCategories: boolean;
-  
+  isLoadingCategories: boolean; 
+  allCompletions: HabitCompletionRecord[]; // <-- НОВОЕ: для хранения всей истории
+  streaks: Map<string, number>; // <-- Новое состояние для хранения стриков
+
   fetchHabits: (userId: string) => Promise<void>;
   fetchArchivedHabits: (userId: string) => Promise<void>;
   fetchCategories: (userId: string) => Promise<void>;
@@ -28,14 +30,15 @@ interface HabitState {
   deleteAllUserData: (userId: string) => Promise<void>;
   deleteCategory: (categoryId: string) => Promise<void>;
   updateHabitOrder: (habits: Habit[]) => Promise<void>;
-  streaks: Map<string, number>; // <-- Новое состояние для хранения стриков
   calculateStreaks: (userId: string) => Promise<void>; // <-- Новая функция
+  fetchAllCompletions: (userId: string) => Promise<void>; // <-- НОВАЯ ФУНКЦИЯ
 }
 
 export const useHabitStore = create<HabitState>((set, get) => ({
   habits: [], archivedHabits: [], habitCompletions: [], categories: [],
-  isLoadingHabits: false, isLoadingCategories: false, error: null,
-    streaks: new Map(),
+  isLoadingHabits: false, isLoadingCategories: false, error: null, 
+  streaks: new Map(),
+  allCompletions: [],
 
   fetchHabits: async (userId) => {
     set({ isLoadingHabits: true });
@@ -51,6 +54,23 @@ export const useHabitStore = create<HabitState>((set, get) => ({
         set({ habits: habitsWithProgress });
     } finally {
         set({ isLoadingHabits: false });
+    }
+  },
+
+  // НОВАЯ ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ВСЕЙ ИСТОРИИ
+  fetchAllCompletions: async (userId: string) => {
+    try {
+        const { data, error } = await supabase
+            .from('habit_completions')
+            .select('*')
+            .eq('user_id', userId);
+        
+        if (error) throw error;
+
+        set({ allCompletions: data || [] });
+
+    } catch (err: any) {
+        console.error("Error fetching all completions:", err);
     }
   },
 
@@ -160,6 +180,27 @@ export const useHabitStore = create<HabitState>((set, get) => ({
         habit_id: habitId, completion_date: date, user_id: habit.user_id,
         completed_count: newProgress, target_completions: habit.target_completions
     }, { onConflict: 'habit_id,completion_date,user_id' });
+
+    // Обновляем не только текущие привычки, но и полную историю
+    set(state => {
+        const existingIndex = state.allCompletions.findIndex(c => c.habit_id === habitId && c.completion_date === date);
+        const newCompletions = [...state.allCompletions];
+        
+        if(existingIndex > -1) {
+            newCompletions[existingIndex] = { ...newCompletions[existingIndex], completed_count: newProgress };
+        } else {
+            const habit = state.habits.find(h => h.id === habitId);
+            if(habit) {
+                 newCompletions.push({ habit_id: habitId, completion_date: date, completed_count: newProgress, target_completions: habit.target_completions, user_id: habit.user_id });
+            }
+        }
+        
+        return {
+            habits: state.habits.map(h => h.id === habitId ? { ...h, progress: newProgress } : h),
+            allCompletions: newCompletions
+        };
+    });
+
   },
 
   archiveHabit: async (habitId) => {
