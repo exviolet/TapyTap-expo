@@ -1,4 +1,3 @@
-// src/screens/HabitsScreen.tsx
 import React, { useState, useEffect, useContext, useCallback, useMemo } from "react";
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert, StyleSheet, Modal, Pressable, RefreshControl, ScrollView } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -16,20 +15,61 @@ import ModeToggle from '../components/ModeToggle';
 const iconMap: any = LucideIcons;
 
 type RootStackParamList = {
-    Habits: undefined; AddHabit: undefined; EditHabit: { habit: Habit };
-    SortCategories: undefined; SortHabits: { categoryId: string; categoryName: string };
+    Habits: undefined;
+    AddHabit: undefined;
+    EditHabit: { habit: Habit };
+    SortCategories: undefined;
+    SortHabits: { categoryId: string; categoryName: string };
 };
 type NavigationProp = StackNavigationProp<RootStackParamList, "Habits">;
 
+// --- НОВЫЙ КОМПОНЕНТ ДЛЯ МОДАЛЬНОГО ОКНА КАТЕГОРИЙ ---
+const CategoryActionModal: React.FC<{
+    visible: boolean;
+    onClose: () => void;
+    category: Category | null;
+    onSortHabits: () => void;
+    onSortCategories: () => void;
+    onDelete: (categoryId: string, categoryName: string) => void;
+}> = ({ visible, onClose, category, onSortHabits, onSortCategories, onDelete }) => {
+    const { colors } = useContext(ThemeContext)!;
+    if (!category) return null;
+    return (
+        <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>
+            <Pressable style={styles.modalOverlay} onPress={onClose}>
+                <View style={[styles.modalContent, { backgroundColor: colors.cardBackground, borderColor: colors.border, borderWidth: 1 }]}>
+                    <Text style={[styles.modalHeader, { color: colors.text }]}>{category.name}</Text>
+                    <TouchableOpacity onPress={onSortHabits} style={[styles.modalButton, { backgroundColor: colors.inputBackground }]}>
+                        <LucideIcons.ListOrdered size={20} color={colors.text} /> 
+                        <Text style={[styles.modalButtonText, { color: colors.text }]}>Сортировать привычки</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={onSortCategories} style={[styles.modalButton, { backgroundColor: colors.inputBackground }]}>
+                        <LucideIcons.FolderKanban size={20} color={colors.text} /> 
+                        <Text style={[styles.modalButtonText, { color: colors.text }]}>Сортировать категории</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => onDelete(category.id, category.name)} style={[styles.modalButton, { backgroundColor: colors.danger }]}>
+                        <LucideIcons.Trash2 size={20} color="#FFFFFF" />
+                        <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>Удалить категорию</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={onClose} style={[styles.modalButton, { marginTop: 15, backgroundColor: 'transparent' }]}>
+                        <LucideIcons.X size={20} color={colors.text} />
+                        <Text style={[styles.modalButtonText, { color: colors.text }]}>Отмена</Text>
+                    </TouchableOpacity>
+                </View>
+            </Pressable>
+        </Modal>
+    );
+};
+
 // Компонент фильтра категорий
 const CategoryFilter: React.FC<{
-    categories: Category[]; selectedCategoryId: string;
+    categories: Category[];
+    selectedCategoryId: string;
     onSelectCategory: (id: string) => void;
-    onDeleteCategory: (id: string, name: string) => void;
-}> = ({ categories, selectedCategoryId, onSelectCategory, onDeleteCategory }) => {
+    onLongPressCategory: (category: Category) => void;
+}> = ({ categories, selectedCategoryId, onSelectCategory, onLongPressCategory }) => {
     const { colors } = useContext(ThemeContext)!;
 
-    // Оборонительная проверка, чтобы приложение не падало, если categories не массив
     if (!Array.isArray(categories) || categories.length === 0) {
         return <View style={styles.categoryFilterContainer}><ActivityIndicator color={colors.accent} /></View>;
     }
@@ -43,8 +83,13 @@ const CategoryFilter: React.FC<{
                     const isStatic = category.id === 'All' || category.id === 'Uncategorized';
                     const chipColor = category.color || colors.accent;
                     return (
-                        <TouchableOpacity key={category.id} style={[styles.categoryChip, { backgroundColor: isSelected ? chipColor : colors.cardBackground, borderColor: isSelected ? chipColor : colors.border }]}
-                            onPress={() => onSelectCategory(category.id)} onLongPress={() => !isStatic && onDeleteCategory(category.id, category.name)} delayLongPress={300}>
+                        <TouchableOpacity
+                            key={category.id}
+                            style={[styles.categoryChip, { backgroundColor: isSelected ? chipColor : colors.cardBackground, borderColor: isSelected ? chipColor : colors.border }]}
+                            onPress={() => onSelectCategory(category.id)}
+                            onLongPress={() => !isStatic && onLongPressCategory(category)}
+                            delayLongPress={300}
+                        >
                             <CategoryIcon size={16} color={isSelected ? "#FFFFFF" : chipColor} style={styles.categoryChipIcon} />
                             <Text style={[styles.categoryChipText, { color: isSelected ? "#FFFFFF" : colors.text }]}>{category.name}</Text>
                         </TouchableOpacity>
@@ -59,8 +104,7 @@ export default function HabitsScreen() {
     const { colors } = useContext(ThemeContext)!;
     const navigation = useNavigation<NavigationProp>();
     const { user } = useAuth();
-    // Убедимся, что используем правильные имена из хранилища
-    const { habits, categories, isLoadingHabits, fetchHabits, fetchCategories, archiveHabit, deleteCategory, updateHabitProgress, streaks, calculateStreaks, } = useHabitStore();
+    const { habits, categories, isLoadingHabits, fetchHabits, fetchCategories, archiveHabit, deleteCategory, updateHabitProgress, streaks, calculateStreaks } = useHabitStore();
     
     const [selectedCategoryId, setSelectedCategoryId] = useState('All');
     const [currentDate, setCurrentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -68,27 +112,53 @@ export default function HabitsScreen() {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
 
+    const [categoryModalVisible, setCategoryModalVisible] = useState(false);
+    const [selectedCategoryForAction, setSelectedCategoryForAction] = useState<Category | null>(null);
+
     useFocusEffect(
         useCallback(() => {
             if (user?.id) {
                 fetchHabits(user.id).then(() => {
-                    // Рассчитываем стрики ПОСЛЕ загрузки привычек
                     calculateStreaks(user.id);
                 });
                 fetchCategories(user.id);
             }
         }, [user?.id, fetchHabits, fetchCategories, calculateStreaks])
     );
-    
+
+    const handleLongPressCategory = (category: Category) => {
+        setSelectedCategoryForAction(category);
+        setCategoryModalVisible(true);
+    };
+
+    const handleSortCategoryHabits = () => {
+        if (!selectedCategoryForAction) return;
+        setCategoryModalVisible(false);
+        navigation.navigate('SortHabits', { 
+            categoryId: selectedCategoryForAction.id,
+            categoryName: selectedCategoryForAction.name
+        });
+    };
+
+    const handleSortCategories = () => {
+        setCategoryModalVisible(false);
+        navigation.navigate('SortCategories');
+    };
+
+    const handleDeleteCategory = useCallback(async (categoryId: string, categoryName: string) => {
+        Alert.alert(`Удалить категорию "${categoryName}"?`, "Привычки в этой категории останутся без категории.",
+            [{ text: "Отмена", style: "cancel" }, { text: "Удалить", style: "destructive", onPress: async () => { await deleteCategory(categoryId); setCategoryModalVisible(false); }}]);
+    }, [deleteCategory]);
+
     const handleSortHabits = () => {
-        setIsModalVisible(false); // Сначала закрываем модальное окно
+        setIsModalVisible(false);
         const category = categories.find(c => c.id === selectedCategoryId);
-        // Передаем правильные параметры
         navigation.navigate('SortHabits', { 
             categoryId: selectedCategoryId,
-            categoryName: category ? category.name : 'Все' // Название категории для заголовка
+            categoryName: category ? category.name : 'Все'
         });
-    }
+    };
+
     const onRefresh = useCallback(async () => {
         setIsRefreshing(true);
         if (user?.id) { await Promise.all([fetchHabits(user.id), fetchCategories(user.id)]); }
@@ -108,11 +178,6 @@ export default function HabitsScreen() {
             [{ text: "Отмена", style: "cancel" }, { text: "Архивировать", onPress: async () => { setIsModalVisible(false); await archiveHabit(habitId); }}]);
     }, [archiveHabit]);
 
-    const handleDeleteCategory = useCallback(async (categoryId: string, categoryName: string) => {
-        Alert.alert(`Удалить категорию "${categoryName}"?`, "Привычки в этой категории останутся без категории.",
-            [{ text: "Отмена", style: "cancel" }, { text: "Удалить", style: "destructive", onPress: async () => { await deleteCategory(categoryId); }}]);
-    }, [deleteCategory]);
-
     const handleEditHabit = (habit: Habit) => { setIsModalVisible(false); navigation.navigate('EditHabit', { habit }); };
     const handleHabitLongPress = (habit: Habit) => { setSelectedHabit(habit); setIsModalVisible(true); };
     const handleHabitPress = (habit: Habit) => console.log("Habit pressed:", habit.name);
@@ -126,16 +191,19 @@ export default function HabitsScreen() {
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
-                 <TouchableOpacity onPress={() => navigation.navigate("SortCategories")} style={styles.headerButton}>
-                     <LucideIcons.Menu size={26} color={colors.text} />
-                 </TouchableOpacity>
-                 <Text style={[styles.screenTitle, { color: colors.text }]}>Мои привычки</Text>
-                 <View style={styles.headerRightContainer}>
-                     <ModeToggle />
-                 </View>
+                <View style={styles.headerSide} /> 
+                <Text style={[styles.screenTitle, { color: colors.text }]}>Мои привычки</Text>
+                <View style={[styles.headerSide, { justifyContent: 'flex-end' }]}>
+                    <ModeToggle />
+                </View>
             </View>
 
-            <CategoryFilter categories={categories} selectedCategoryId={selectedCategoryId} onSelectCategory={setSelectedCategoryId} onDeleteCategory={handleDeleteCategory} />
+            <CategoryFilter
+                categories={categories}
+                selectedCategoryId={selectedCategoryId}
+                onSelectCategory={setSelectedCategoryId}
+                onLongPressCategory={handleLongPressCategory}
+            />
             
             {isLoadingHabits && habits.length === 0 ? (
                 <View style={[styles.container, { justifyContent: 'center' }]}><ActivityIndicator size="large" color={colors.accent} /></View>
@@ -145,7 +213,7 @@ export default function HabitsScreen() {
                     keyExtractor={(item) => item.id}
                     renderItem={renderHabitItem}
                     contentContainerStyle={styles.flatListContent}
-                    refreshControl={ <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.accent} /> }
+                    refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
                     ListEmptyComponent={
                         <View style={styles.emptyListContainer}>
                             <Text style={[styles.emptyListText, { color: colors.textSecondary }]}>{selectedCategoryId !== 'All' ? 'Нет привычек в этой категории' : 'У вас пока нет привычек'}</Text>
@@ -153,21 +221,30 @@ export default function HabitsScreen() {
                     }
                 />
             )}
+
+            <CategoryActionModal 
+                visible={categoryModalVisible}
+                onClose={() => setCategoryModalVisible(false)}
+                category={selectedCategoryForAction}
+                onSortHabits={handleSortCategoryHabits}
+                onSortCategories={handleSortCategories}
+                onDelete={handleDeleteCategory}
+            />
             
             <Modal animationType="fade" transparent visible={isModalVisible} onRequestClose={() => setIsModalVisible(false)}>
                 <Pressable style={styles.modalOverlay} onPress={() => setIsModalVisible(false)}>
                     <View style={[styles.modalContent, { backgroundColor: colors.cardBackground, borderColor: colors.border, borderWidth: 1 }]}>
                         <Text style={[styles.modalHeader, { color: colors.text }]}>{selectedHabit?.name}</Text>
                         <TouchableOpacity onPress={handleSortHabits} style={[styles.modalButton, { backgroundColor: colors.inputBackground }]}>
-                             <LucideIcons.ArrowUpDown size={20} color={colors.text} />
-                             <Text style={[styles.modalButtonText, { color: colors.text }]}>Сортировать</Text>
-                         </TouchableOpacity>
+                            <LucideIcons.ArrowUpDown size={20} color={colors.text} />
+                            <Text style={[styles.modalButtonText, { color: colors.text }]}>Сортировать</Text>
+                        </TouchableOpacity>
                         <TouchableOpacity onPress={() => selectedHabit && handleEditHabit(selectedHabit)} style={[styles.modalButton, { backgroundColor: colors.accent }]}>
                             <LucideIcons.Edit size={20} color={colors.buttonText} />
                             <Text style={[styles.modalButtonText, { color: colors.buttonText }]}>Редактировать</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => selectedHabit && handleArchiveHabit(selectedHabit.id)} style={[styles.modalButton, { backgroundColor: colors.warning }]}>
-                            <LucideIcons.Archive size={20}/>
+                            <LucideIcons.Archive size={20} />
                             <Text style={styles.modalButtonText}>Архивировать</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => setIsModalVisible(false)} style={[styles.modalButton, { marginTop: 15, backgroundColor: 'transparent' }]}>
@@ -184,6 +261,7 @@ export default function HabitsScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { paddingTop: 60, paddingHorizontal: 16, paddingBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    headerSide: { flex: 1, flexDirection: 'row' },
     headerButton: { padding: 8 },
     headerRightContainer: { flexDirection: 'row', alignItems: 'center', gap: 0 },
     screenTitle: { fontSize: 22, fontWeight: 'bold' },

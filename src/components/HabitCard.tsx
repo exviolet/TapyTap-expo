@@ -1,5 +1,5 @@
 // src/components/HabitCard.tsx
-import React, { useContext } from 'react';
+import React, { useContext, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { ThemeContext } from './ThemeProvider';
@@ -15,7 +15,7 @@ interface HabitCardProps {
 }
 
 const iconMap: any = LucideIcons;
-
+const dayLabels = { mon: 'Пн', tue: 'Вт', wed: 'Ср', thu: 'Чт', fri: 'Пт', sat: 'Сб', sun: 'Вс' };
 const HabitCard: React.FC<HabitCardProps> = ({ habit, streak, onUpdateProgress, onLongPress }) => {
     const { colors } = useContext(ThemeContext)!;
     const isCompleted = habit.progress >= habit.target_completions;
@@ -44,7 +44,6 @@ const HabitCard: React.FC<HabitCardProps> = ({ habit, streak, onUpdateProgress, 
                 <View style={styles.detailsContainer}>
                     <View style={styles.titleContainer}>
                         <Text style={[styles.habitName, { color: colors.text }]}>{habit.name}</Text>
-                        {/* НОВЫЙ ЭЛЕМЕНТ: ОТОБРАЖЕНИЕ СТРИКА */}
                         {streak > 1 && (
                             <View style={styles.streakContainer}>
                                 <LucideIcons.Flame size={14} color="#FF9500" />

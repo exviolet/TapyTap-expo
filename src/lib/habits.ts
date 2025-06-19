@@ -22,7 +22,7 @@ export interface Habit {
     user_id: string;
     name: string;
     description: string | null;
-    frequency: string;
+    frequency: any;
     progress: number;
     created_at: string;
     updated_at: string;

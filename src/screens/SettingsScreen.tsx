@@ -1,19 +1,19 @@
 // src/screens/SettingsScreen.tsx
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ThemeContext } from '../components/ThemeProvider';
 import { useAuth } from '../contexts/AuthContext';
+import { useHabitStore } from '../store/useHabitStore';
 import * as LucideIcons from 'lucide-react-native';
 
-// Типы для навигации
-type RootStackParamList = {
+// Определяем типы для навигации
+type SettingsStackParamList = {
+    Settings: undefined;
     ArchivedHabits: undefined;
-    // Добавьте другие экраны, если они есть в вашем стеке
 };
-type SettingsScreenNavigationProp = StackNavigationProp<RootStackParamList>;
-
+type SettingsScreenNavigationProp = StackNavigationProp<SettingsStackParamList, 'Settings'>;
 
 // Компонент для заголовка секции
 const SectionHeader = ({ title }: { title: string }) => {
@@ -33,9 +33,9 @@ const SettingsRow: React.FC<{
     const labelColor = color || colors.text;
 
     return (
-        <TouchableOpacity onPress={onPress} style={styles.rowContainer} disabled={!onPress}>
+        <TouchableOpacity onPress={onPress} style={styles.rowContainer} disabled={!onPress && !children}>
             <View style={[styles.iconContainer, { backgroundColor: colors.inputBackground }]}>
-                <Icon size={20} color={labelColor} />
+                <Icon size={20} color={labelColor} strokeWidth={2} />
             </View>
             <Text style={[styles.rowLabel, { color: labelColor }]}>{label}</Text>
             <View style={styles.rightContent}>
@@ -45,24 +45,32 @@ const SettingsRow: React.FC<{
     );
 };
 
-// Главный компонент экрана настроек
 export default function SettingsScreen() {
     const { colors, theme, setAppTheme } = useContext(ThemeContext)!;
     const { user, signOut } = useAuth();
+    const { deleteAllUserData } = useHabitStore();
     const navigation = useNavigation<SettingsScreenNavigationProp>();
 
+    // Локальное состояние для переключателя уведомлений
+    const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
     const handleLogout = () => {
-        Alert.alert(
-            "Выход из аккаунта",
-            "Вы уверены, что хотите выйти?",
-            [
-                { text: "Отмена", style: "cancel" },
-                {
-                    text: "Выйти",
-                    style: "destructive",
-                    onPress: () => signOut(),
+        Alert.alert( "Выход из аккаунта", "Вы уверены, что хотите выйти?",
+            [{ text: "Отмена", style: "cancel" }, { text: "Выйти", style: "destructive", onPress: signOut }]
+        );
+    };
+    
+    const handleDeleteAllData = () => {
+        Alert.alert("Удалить все данные?", "ВНИМАНИЕ! Это действие необратимо и удалит все ваши привычки, категории и историю.",
+            [{ text: "Отмена", style: "cancel" }, { text: "Я понимаю, удалить", style: "destructive",
+                onPress: async () => {
+                    if (user) {
+                       await deleteAllUserData(user.id);
+                       Alert.alert("Успех", "Все ваши данные были удалены.");
+                       // Можно добавить навигацию на экран входа, если нужно
+                    }
                 },
-            ]
+            }]
         );
     };
 
@@ -73,7 +81,6 @@ export default function SettingsScreen() {
             </View>
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 
-                {/* --- Секция Внешний вид --- */}
                 <SectionHeader title="Внешний вид" />
                 <View style={[styles.section, { backgroundColor: colors.cardBackground }]}>
                     <SettingsRow label="Тема" icon={LucideIcons.Palette}>
@@ -81,10 +88,7 @@ export default function SettingsScreen() {
                             {(['light', 'dark', 'system'] as const).map((item) => (
                                 <TouchableOpacity
                                     key={item}
-                                    style={[
-                                        styles.segmentButton,
-                                        theme === item && { backgroundColor: colors.accent }
-                                    ]}
+                                    style={[styles.segmentButton, theme === item && { backgroundColor: colors.accent }]}
                                     onPress={() => setAppTheme(item)}
                                 >
                                     <Text style={[styles.segmentText, { color: theme === item ? colors.buttonText : colors.text }]}>
@@ -96,7 +100,18 @@ export default function SettingsScreen() {
                     </SettingsRow>
                 </View>
 
-                {/* --- Секция Данные --- */}
+                <SectionHeader title="Уведомления" />
+                <View style={[styles.section, { backgroundColor: colors.cardBackground }]}>
+                     <SettingsRow label="Все уведомления" icon={LucideIcons.Bell}>
+                        <Switch
+                            value={notificationsEnabled}
+                            onValueChange={setNotificationsEnabled}
+                            trackColor={{ false: "#767577", true: colors.success }}
+                            thumbColor={"#f4f3f4"}
+                        />
+                     </SettingsRow>
+                </View>
+
                 <SectionHeader title="Данные" />
                  <View style={[styles.section, { backgroundColor: colors.cardBackground }]}>
                     <SettingsRow
@@ -106,7 +121,6 @@ export default function SettingsScreen() {
                     />
                 </View>
 
-                {/* --- Секция Аккаунт --- */}
                 <SectionHeader title="Аккаунт" />
                  <View style={[styles.section, { backgroundColor: colors.cardBackground }]}>
                     <SettingsRow
@@ -116,90 +130,36 @@ export default function SettingsScreen() {
                         color={colors.danger}
                     />
                 </View>
+                
+                <SectionHeader title="Опасная зона" />
+                 <View style={[styles.section, { backgroundColor: colors.cardBackground }]}>
+                     <SettingsRow
+                        label="Удалить все данные"
+                        icon={LucideIcons.Trash2}
+                        onPress={handleDeleteAllData}
+                        color={colors.danger}
+                    />
+                </View>
 
-                {/* --- Информация о пользователе внизу --- */}
-                {user && (
-                    <Text style={[styles.footerText, { color: colors.textFaded }]}>
-                        Вы вошли как {user.email}
-                    </Text>
-                )}
+                {user && <Text style={[styles.footerText, { color: colors.textFaded }]}>Вы вошли как {user.email}</Text>}
             </ScrollView>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    header: {
-        paddingTop: 60,
-        paddingBottom: 20,
-        paddingHorizontal: 20,
-    },
-    headerTitle: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        textAlign: 'center',
-    },
-    scrollContent: {
-        paddingHorizontal: 16,
-        paddingBottom: 40,
-    },
-    section: {
-        borderRadius: 12,
-        marginBottom: 20,
-        overflow: 'hidden',
-    },
-    sectionHeader: {
-        fontSize: 13,
-        fontWeight: '600',
-        paddingHorizontal: 16,
-        paddingBottom: 8,
-    },
-    rowContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(0,0,0,0.05)', // для светлой темы
-    },
-    iconContainer: {
-        width: 36,
-        height: 36,
-        borderRadius: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 16,
-    },
-    rowLabel: {
-        fontSize: 16,
-        flex: 1,
-    },
-    rightContent: {
-        marginLeft: 'auto',
-    },
-    segmentedControl: {
-        flexDirection: 'row',
-        backgroundColor: '#7676801F', // systemGray5
-        borderRadius: 8,
-        padding: 2,
-    },
-    segmentButton: {
-        flex: 1,
-        paddingVertical: 6,
-        borderRadius: 6,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    segmentText: {
-        fontSize: 13,
-        fontWeight: '500',
-    },
-    footerText: {
-        textAlign: 'center',
-        marginTop: 20,
-        fontSize: 12,
-    }
+    container: { flex: 1 },
+    header: { paddingTop: 60, paddingBottom: 20, paddingHorizontal: 20 },
+    headerTitle: { fontSize: 28, fontWeight: 'bold', textAlign: 'center' },
+    scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
+    section: { borderRadius: 12, marginBottom: 25, overflow: 'hidden' },
+    sectionHeader: { fontSize: 13, fontWeight: '600', paddingLeft: 16, paddingBottom: 8, textTransform: 'uppercase' },
+    rowContainer: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, minHeight: 58 },
+    iconContainer: { width: 36, height: 36, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+    rowLabel: { fontSize: 16, flex: 1, fontWeight: '500' },
+    rightContent: { marginLeft: 'auto' },
+    segmentedControl: { flexDirection: 'row', backgroundColor: '#7676801F', borderRadius: 8, padding: 2 },
+    segmentButton: { flex: 1, paddingVertical: 6, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+    segmentText: { fontSize: 13, fontWeight: '600' },
+    footerText: { textAlign: 'center', marginTop: 20, fontSize: 12 }
 });

@@ -3,7 +3,6 @@ import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ИНТЕРФЕЙС, ВКЛЮЧАЮЩИЙ НЕДОСТАЮЩИЕ СВОЙСТВА
 export interface ColorPalette {
     background: string;
     text: string;
@@ -13,9 +12,9 @@ export interface ColorPalette {
     accentFaded: string;
     inputBackground: string;
     border: string;
-    inputBorder: string; // <-- ДОБАВЛЕНО
+    inputBorder: string;
     cardBackground: string;
-    cardIconBackground: string; // <-- ДОБАВЛЕНО
+    cardIconBackground: string;
     cardBackgroundCompleted: string;
     tabBarBackground: string;
     tabBarActiveTint: string;
@@ -31,12 +30,12 @@ export interface ColorPalette {
 
 interface ThemeContextType {
     theme: 'light' | 'dark' | 'system';
+    isDark: boolean; // Добавляем свойство isDark
     colors: ColorPalette;
     toggleTheme: () => void;
     setAppTheme: (newTheme: 'light' | 'dark' | 'system') => void;
 }
 
-// Палитра для темной темы
 const darkColors: ColorPalette = {
     background: "#121212",
     text: "#EAEAEA",
@@ -46,9 +45,9 @@ const darkColors: ColorPalette = {
     accentFaded: '#3A2D4F',
     inputBackground: "#2C2C2C",
     border: "#2C2C2C",
-    inputBorder: "#34394F", // <-- ДОБАВЛЕНО
+    inputBorder: "#34394F",
     cardBackground: "#1E1E1E",
-    cardIconBackground: "#2C314C", // <-- ДОБАВЛЕНО
+    cardIconBackground: "#2C314C",
     cardBackgroundCompleted: '#2A3B2E',
     tabBarBackground: "#1E1E1E",
     tabBarActiveTint: "#BB86FC",
@@ -62,7 +61,6 @@ const darkColors: ColorPalette = {
     danger: "#EF5350",
 };
 
-// Палитра для светлой темы
 const lightColors: ColorPalette = {
     background: "#F7F8FA",
     text: "#121212",
@@ -72,9 +70,9 @@ const lightColors: ColorPalette = {
     accentFaded: '#E9D5FF',
     inputBackground: "#EEEEEE",
     border: "#EAEAEA",
-    inputBorder: "#E0E0E0", // <-- ДОБАВЛЕНО
+    inputBorder: "#E0E0E0",
     cardBackground: "#FFFFFF",
-    cardIconBackground: "#EEEEEE", // <-- ДОБАВЛЕНО
+    cardIconBackground: "#EEEEEE",
     cardBackgroundCompleted: '#E8F5E9',
     tabBarBackground: "#FFFFFF",
     tabBarActiveTint: "#6A0DAD",
@@ -119,8 +117,15 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         return themeToApply === 'dark' ? darkColors : lightColors;
     }, [currentTheme, systemColorScheme]);
 
+    // Вычисляем isDark на основе текущей темы
+    const isDark = React.useMemo(() => {
+        if (currentTheme === 'system') return systemColorScheme === 'dark';
+        return currentTheme === 'dark';
+    }, [currentTheme, systemColorScheme]);
+
     const contextValue = {
         theme: currentTheme,
+        isDark, // Добавляем isDark в контекст
         colors,
         toggleTheme,
         setAppTheme,
