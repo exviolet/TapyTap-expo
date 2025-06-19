@@ -77,6 +77,7 @@ export default function HabitDetailScreen() {
                         yAxisTextStyle={{ color: colors.textFaded }}
                         xAxisLabelTextStyle={{ color: colors.textFaded, fontSize: 10 }}
                         noOfSections={4}
+                        hideRules // ⬅️ отключает сеточные линии
                         isAnimated
                       />
                 </View>

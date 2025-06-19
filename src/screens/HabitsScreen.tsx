@@ -167,7 +167,7 @@ export default function HabitsScreen() {
                             <Text style={[styles.modalButtonText, { color: colors.buttonText }]}>Редактировать</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => selectedHabit && handleArchiveHabit(selectedHabit.id)} style={[styles.modalButton, { backgroundColor: colors.warning }]}>
-                            <LucideIcons.Archive size={20} color="#FFFFFF" />
+                            <LucideIcons.Archive size={20}/>
                             <Text style={styles.modalButtonText}>Архивировать</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => setIsModalVisible(false)} style={[styles.modalButton, { marginTop: 15, backgroundColor: 'transparent' }]}>

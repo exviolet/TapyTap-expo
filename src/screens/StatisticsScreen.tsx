@@ -200,11 +200,33 @@ const chartData = useMemo(() => {
                  <Text style={[styles.cardTitle, { color: colors.text }]}>Общая продуктивность</Text>
                  <View style={styles.pieChartsContainer}>
                     <View style={styles.pieChartWrapper}>
-                        <PieChart data={chartData.weeklyPieData} donut radius={60} innerRadius={45} centerLabelComponent={() => <Text style={{color: colors.text, fontSize: 22, fontWeight: 'bold'}}>{chartData.weeklyText}</Text>} />
+                        <PieChart
+                            data={chartData.weeklyPieData}
+                            donut
+                            radius={60}
+                            innerRadius={45}
+                            centerLabelComponent={() => (
+                                <View style={{justifyContent: 'center', alignItems: 'center'}}>
+                                    <Text style={{color: colors.text, fontSize: 22, fontWeight: 'bold'}}>{chartData.weeklyText}</Text>
+                                </View>
+                            )}
+                            innerCircleColor={colors.cardBackground}
+                        />
                         <Text style={[styles.chartLabel, { color: colors.textSecondary }]}>Прошлая неделя</Text>
                     </View>
                     <View style={styles.pieChartWrapper}>
-                        <PieChart data={chartData.monthlyPieData} donut radius={60} innerRadius={45} centerLabelComponent={() => <Text style={{color: colors.text, fontSize: 22, fontWeight: 'bold'}}>{chartData.monthlyText}</Text>} />
+                        <PieChart
+                            data={chartData.monthlyPieData}
+                            donut
+                            radius={60}
+                            innerRadius={45}
+                            centerLabelComponent={() => (
+                                <View style={{justifyContent: 'center', alignItems: 'center'}}>
+                                    <Text style={{color: colors.text, fontSize: 22, fontWeight: 'bold'}}>{chartData.monthlyText}</Text>
+                                </View>
+                            )}
+                            innerCircleColor={colors.cardBackground}
+                        />
                         <Text style={[styles.chartLabel, { color: colors.textSecondary }]}>Прошлый месяц</Text>
                     </View>
                  </View>
@@ -217,6 +239,7 @@ const chartData = useMemo(() => {
                     keyExtractor={item => item.id}
                     renderItem={renderHabitItem}
                     scrollEnabled={false} // Отключаем скролл внутри ScrollView
+                    ListEmptyComponent={<Text style={{color: colors.textSecondary, textAlign: 'center'}}>Нет активных привычек для анализа</Text>}
                 />
             </View>
         </ScrollView>
