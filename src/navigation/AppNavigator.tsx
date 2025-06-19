@@ -21,6 +21,7 @@ import EditHabitScreen from '../screens/EditHabitScreen';
 import ArchivedHabitsScreen from '../screens/ArchivedHabitsScreen';
 import SortCategoriesScreen from '../screens/SortCategoriesScreen';
 import SortHabitsScreen from '../screens/SortHabitsScreen';
+import HabitDetailScreen from '@/screens/HabitDetailScreen';
 
 
 const Tab = createBottomTabNavigator();
@@ -59,6 +60,16 @@ function AuthStack() {
     );
 }
 
+// НОВЫЙ СТЕК ДЛЯ СТАТИСТИКИ
+function StatisticsStack() {
+    const { colors } = useContext(ThemeContext)!;
+    return (
+        <Stack.Navigator screenOptions={{ headerShown: false, cardStyle: { backgroundColor: colors.background } }}>
+            <Stack.Screen name="Statistics" component={StatisticsScreen} />
+            <Stack.Screen name="HabitDetailScreen" component={HabitDetailScreen} />
+        </Stack.Navigator>
+    );
+}
 
 // Главный Tab-навигатор с классическим дизайном
 function AppTabs() {
@@ -110,7 +121,7 @@ function AppTabs() {
                 }
             }}
             />
-            <Tab.Screen name="StatisticsTab" component={StatisticsScreen} options={{
+            <Tab.Screen name="StatisticsTab" component={StatisticsStack} options={{
                 title: 'Статистика',
                 tabBarIcon: ({ color, size }) => (<LucideIcons.BarChart3 size={size} color={color} />),
             }}/>
