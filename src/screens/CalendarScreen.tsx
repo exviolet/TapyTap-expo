@@ -12,6 +12,7 @@ import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, 
 import { CircularProgressDay } from '../components/CircularProgressDay';
 import { ru } from 'date-fns/locale';
 import { Svg, Rect } from 'react-native-svg';
+import Heatmap from '../components/Heatmap';
 
 // Настройка локализации для календаря
 LocaleConfig.locales['ru'] = {
@@ -23,103 +24,6 @@ LocaleConfig.locales['ru'] = {
 };
 LocaleConfig.defaultLocale = 'ru';
 
-// --- НОВЫЙ, УЛУЧШЕННЫЙ КОМПОНЕНТ HEATMAP ---
-const GitHubStyleHeatmap = ({ habit, completions }: { habit: Habit | null, completions: HabitCompletionRecord[] }) => {
-    const { colors } = useContext(ThemeContext)!;
-
-    const data = useMemo(() => {
-        const countsByDate: Map<string, number> = new Map();
-        if (!habit) return countsByDate;
-        
-        completions
-            .filter(c => c.habit_id === habit.id)
-            .forEach(comp => {
-                if (comp.completed_count > 0) {
-                    countsByDate.set(comp.completion_date, (countsByDate.get(comp.completion_date) || 0) + comp.completed_count);
-                }
-            });
-        return countsByDate;
-    }, [completions, habit]);
-
-    const endDate = new Date();
-    const startDate = subDays(endDate, 364); // 52 недели = 364 дня, чтобы избежать лишнего дня
-    const allDays = eachDayOfInterval({ start: startDate, end: endDate });
-
-    // Цвета Heatmap основаны на цвете привычки
-    const habitColor = habit?.categories[0]?.color || colors.accent;
-    const getColorForCount = (count: number) => {
-        if (count === 0) return colors.inputBackground;
-        const opacity = Math.min(1, count / 5); // Максимальная интенсивность при 5+ выполнений
-        return count > 0 ? `${habitColor}${Math.floor(opacity * 255).toString(16).padStart(2, '0')}` : colors.inputBackground;
-    };
-    
-    // Названия месяцев для подписей
-    const monthNames = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
-    const shownMonths = new Set<number>();
-
-    // Точный расчет максимального weekIndex
-    const maxWeekIndex = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 7));
-
-    return (
-        <View style={styles.heatmapOuterContainer}>
-            <View style={{ flexDirection: 'row' }}>
-                <View style={styles.weekdaysContainer}>
-                    <Text style={styles.weekdayText}>Пн</Text>
-                    <Text style={styles.weekdayText}>Ср</Text>
-                    <Text style={styles.weekdayText}>Пт</Text>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View>
-                        <View style={styles.monthsContainer}>
-                            {[...allDays].reverse().map((day, index) => {
-                                const month = getMonth(day);
-                                const dateString = format(day, 'yyyy-MM-dd');
-                                const weekIndex = Math.floor((day.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 7));
-
-                                if (!shownMonths.has(month)) {
-                                    shownMonths.add(month);
-                                    const totalMonths = new Set(allDays.map(d => getMonth(d))).size;
-                                    return (
-                                        <Text
-                                            key={`month-${dateString}`}
-                                            style={[styles.monthText, { left: (totalMonths - shownMonths.size) * 63, color: colors.textSecondary }]}
-                                        >
-                                            {monthNames[month]}
-                                        </Text>
-                                    );
-                                }
-                                return null;
-                            })}
-                        </View>
-                        <Svg height={7 * 14} width={(maxWeekIndex + 1) * 14}> 
-                            {allDays.map((day, index) => {
-                                const dayOfWeek = getDay(day);
-                                const weekIndexRaw = Math.floor((day.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 7));
-                                const weekIndex = Math.min(weekIndexRaw, maxWeekIndex); // Ограничение weekIndex
-                                const dateString = format(day, 'yyyy-MM-dd');
-                                const count = data.get(dateString) || 0;
-                                const isToday = dateString === format(endDate, 'yyyy-MM-dd');
-
-                                return (
-                                    <Rect
-                                        key={dateString}
-                                        x={weekIndex * 14}
-                                        y={dayOfWeek * 14}
-                                        width={10}
-                                        height={10}
-                                        rx={2}
-                                        ry={2}
-                                        fill={getColorForCount(count)}
-                                    />
-                                );
-                            })}
-                        </Svg>
-                    </View>
-                </ScrollView>
-            </View>
-        </View>
-    );
-};
 
 export default function CalendarScreen() {
     const { colors, theme } = useContext(ThemeContext)!;
@@ -208,6 +112,7 @@ export default function CalendarScreen() {
                 {selectedHabit ? (
                     <Calendar
                         key={`${selectedHabit.id}-${theme}`}
+                        firstDay={1} // <-- ДОБАВЬ ЭТУ СТРОКУ
                         dayComponent={({ date, state }) => (
                             <CircularProgressDay
                                 date={date}
@@ -230,7 +135,7 @@ export default function CalendarScreen() {
 
                 {selectedHabit && (
                     <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
-                        <GitHubStyleHeatmap habit={selectedHabit} completions={allCompletions} />
+                        <Heatmap habit={selectedHabit} completions={allCompletions} />
                     </View>
                 )}
             </ScrollView>

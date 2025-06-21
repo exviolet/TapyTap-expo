@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import HabitCard from "../components/HabitCard";
 import { useAuth } from '../contexts/AuthContext';
 import ModeToggle from '../components/ModeToggle';
+import HabitDetailSheet from '../components/HabitDetailSheet'; // <-- Добавь
 
 const iconMap: any = LucideIcons;
 
@@ -20,6 +21,7 @@ type RootStackParamList = {
     EditHabit: { habit: Habit };
     SortCategories: undefined;
     SortHabits: { categoryId: string; categoryName: string };
+    HabitOverviewScreen: { habitId: string; habitName: string }; // ← Добавить
 };
 type NavigationProp = StackNavigationProp<RootStackParamList, "Habits">;
 
@@ -109,8 +111,9 @@ export default function HabitsScreen() {
     const [selectedCategoryId, setSelectedCategoryId] = useState('All');
     const [currentDate, setCurrentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [isModalVisible, setIsModalVisible] = useState(false);
-    const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
+    const [isActionModalVisible, setActionModalVisible] = useState(false);
+    const [selectedHabitForAction, setSelectedHabitForAction] = useState<Habit | null>(null);
+    const [selectedHabitForDetail, setSelectedHabitForDetail] = useState<Habit | null>(null); // <-- Добавь это
 
     const [categoryModalVisible, setCategoryModalVisible] = useState(false);
     const [selectedCategoryForAction, setSelectedCategoryForAction] = useState<Category | null>(null);
@@ -151,7 +154,7 @@ export default function HabitsScreen() {
     }, [deleteCategory]);
 
     const handleSortHabits = () => {
-        setIsModalVisible(false);
+        setActionModalVisible(false);
         const category = categories.find(c => c.id === selectedCategoryId);
         navigation.navigate('SortHabits', { 
             categoryId: selectedCategoryId,
@@ -175,18 +178,23 @@ export default function HabitsScreen() {
     
     const handleArchiveHabit = useCallback(async (habitId: string) => {
         Alert.alert("Архивировать привычку?", "Ее можно будет восстановить в настройках.",
-            [{ text: "Отмена", style: "cancel" }, { text: "Архивировать", onPress: async () => { setIsModalVisible(false); await archiveHabit(habitId); }}]);
+            [{ text: "Отмена", style: "cancel" }, { text: "Архивировать", onPress: async () => { setActionModalVisible(false); await archiveHabit(habitId); }}]);
     }, [archiveHabit]);
 
-    const handleEditHabit = (habit: Habit) => { setIsModalVisible(false); navigation.navigate('EditHabit', { habit }); };
-    const handleHabitLongPress = (habit: Habit) => { setSelectedHabit(habit); setIsModalVisible(true); };
-    const handleHabitPress = (habit: Habit) => console.log("Habit pressed:", habit.name);
+    const handleEditHabit = (habit: Habit) => { setActionModalVisible(false); navigation.navigate('EditHabit', { habit }); };
+    const handleHabitLongPress = (habit: Habit) => {
+        setSelectedHabitForAction(habit);
+        setActionModalVisible(true);
+    };
+    const handleHabitPress = (habit: Habit) => {
+        setSelectedHabitForDetail(habit);
+    };
 
-    const renderHabitItem = useCallback(({ item }: { item: Habit }) => (
-        <Animated.View entering={FadeIn} exiting={FadeOut}>
-            <HabitCard habit={item} onUpdateProgress={handleUpdateProgress} onLongPress={handleHabitLongPress} onPress={handleHabitPress} streak={streaks.get(item.id) || 0} />
-        </Animated.View>
-    ), [handleUpdateProgress, handleHabitLongPress, handleHabitPress, currentDate, streaks]);
+const renderHabitItem = useCallback(({ item }: { item: Habit }) => (
+    <Animated.View entering={FadeIn} exiting={FadeOut}>
+        <HabitCard habit={item} onUpdateProgress={handleUpdateProgress} onLongPress={handleHabitLongPress} onPress={handleHabitPress} streak={streaks.get(item.id) || 0} />
+    </Animated.View>
+), [handleUpdateProgress, handleHabitLongPress, handleHabitPress, currentDate, streaks]);
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -231,29 +239,33 @@ export default function HabitsScreen() {
                 onDelete={handleDeleteCategory}
             />
             
-            <Modal animationType="fade" transparent visible={isModalVisible} onRequestClose={() => setIsModalVisible(false)}>
-                <Pressable style={styles.modalOverlay} onPress={() => setIsModalVisible(false)}>
+            <Modal animationType="fade" transparent visible={isActionModalVisible} onRequestClose={() => setActionModalVisible(false)}>
+                <Pressable style={styles.modalOverlay} onPress={() => setActionModalVisible(false)}>
                     <View style={[styles.modalContent, { backgroundColor: colors.cardBackground, borderColor: colors.border, borderWidth: 1 }]}>
-                        <Text style={[styles.modalHeader, { color: colors.text }]}>{selectedHabit?.name}</Text>
+                        <Text style={[styles.modalHeader, { color: colors.text }]}>{selectedHabitForAction?.name}</Text>
                         <TouchableOpacity onPress={handleSortHabits} style={[styles.modalButton, { backgroundColor: colors.inputBackground }]}>
                             <LucideIcons.ArrowUpDown size={20} color={colors.text} />
                             <Text style={[styles.modalButtonText, { color: colors.text }]}>Сортировать</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={() => selectedHabit && handleEditHabit(selectedHabit)} style={[styles.modalButton, { backgroundColor: colors.accent }]}>
+                        <TouchableOpacity onPress={() => selectedHabitForAction && handleEditHabit(selectedHabitForAction)} style={[styles.modalButton, { backgroundColor: colors.accent }]}>
                             <LucideIcons.Edit size={20} color={colors.buttonText} />
                             <Text style={[styles.modalButtonText, { color: colors.buttonText }]}>Редактировать</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={() => selectedHabit && handleArchiveHabit(selectedHabit.id)} style={[styles.modalButton, { backgroundColor: colors.warning }]}>
+                        <TouchableOpacity onPress={() => selectedHabitForAction && handleArchiveHabit(selectedHabitForAction.id)} style={[styles.modalButton, { backgroundColor: colors.warning }]}>
                             <LucideIcons.Archive size={20} />
                             <Text style={styles.modalButtonText}>Архивировать</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={() => setIsModalVisible(false)} style={[styles.modalButton, { marginTop: 15, backgroundColor: 'transparent' }]}>
+                        <TouchableOpacity onPress={() => setActionModalVisible(false)} style={[styles.modalButton, { marginTop: 15, backgroundColor: 'transparent' }]}>
                             <LucideIcons.X size={20} color={colors.text} />
                             <Text style={[styles.modalButtonText, { color: colors.text }]}>Отмена</Text>
                         </TouchableOpacity>
                     </View>
                 </Pressable>
             </Modal>
+            <HabitDetailSheet 
+                habit={selectedHabitForDetail}
+                onClose={() => setSelectedHabitForDetail(null)}
+            />
         </View>
     );
 }

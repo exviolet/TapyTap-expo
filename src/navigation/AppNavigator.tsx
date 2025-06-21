@@ -1,6 +1,8 @@
 // src/navigation/AppNavigator.tsx
 import React, { useContext } from 'react';
 import { View, TouchableOpacity, StyleSheet, Text, ActivityIndicator } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import 'react-native-gesture-handler';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
@@ -22,6 +24,7 @@ import ArchivedHabitsScreen from '../screens/ArchivedHabitsScreen';
 import SortCategoriesScreen from '../screens/SortCategoriesScreen';
 import SortHabitsScreen from '../screens/SortHabitsScreen';
 import HabitDetailScreen from '@/screens/HabitDetailScreen';
+import HabitOverviewScreen from '@/screens/HabitOverviewScreen';
 
 
 const Tab = createBottomTabNavigator();
@@ -158,9 +161,11 @@ export default function AppNavigator() {
     }
     
     return (
-        <NavigationContainer>
-            {user ? <RootNavigator /> : <AuthStack />}
-        </NavigationContainer>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <NavigationContainer>
+                {user ? <RootNavigator /> : <AuthStack />}
+            </NavigationContainer>
+        </GestureHandlerRootView>
     );
 }
 

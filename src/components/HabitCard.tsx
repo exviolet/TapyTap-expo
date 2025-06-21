@@ -11,12 +11,13 @@ interface HabitCardProps {
     streak: number;
     onUpdateProgress: (habitId: string, newProgress: number) => void;
     onLongPress: (habit: Habit) => void;
-    onPress: (habit: Habit) => void;
+    onPress: (habit: Habit) => void; // Уже правильно определено
 }
 
 const iconMap: any = LucideIcons;
 const dayLabels = { mon: 'Пн', tue: 'Вт', wed: 'Ср', thu: 'Чт', fri: 'Пт', sat: 'Сб', sun: 'Вс' };
-const HabitCard: React.FC<HabitCardProps> = ({ habit, streak, onUpdateProgress, onLongPress }) => {
+
+const HabitCard: React.FC<HabitCardProps> = ({ habit, streak, onUpdateProgress, onLongPress, onPress }) => { // Добавлено onPress
     const { colors } = useContext(ThemeContext)!;
     const isCompleted = habit.progress >= habit.target_completions;
 
@@ -35,7 +36,7 @@ const HabitCard: React.FC<HabitCardProps> = ({ habit, streak, onUpdateProgress, 
     const CurrentIcon = iconMap[habit.icon] || LucideIcons.CheckSquare;
 
     return (
-        <TouchableOpacity onLongPress={() => onLongPress(habit)} activeOpacity={0.8} style={styles.container}>
+        <TouchableOpacity onPress={() => onPress(habit)} onLongPress={() => onLongPress(habit)} activeOpacity={0.8} style={styles.container}>
             <Animated.View style={[styles.card, animatedCardStyle, { borderColor: colors.border }]}>
                 <View style={[styles.iconContainer, { backgroundColor: isCompleted ? colors.accentFaded : (habit.categories[0]?.color || colors.accent) }]}>
                     <CurrentIcon size={28} color={isCompleted ? colors.accent : "#FFFFFF"} />
@@ -78,7 +79,7 @@ const HabitCard: React.FC<HabitCardProps> = ({ habit, streak, onUpdateProgress, 
                         </>
                     ) : (
                         <TouchableOpacity onPress={handleCheckoff} style={[styles.checkoffButton, { backgroundColor: isCompleted ? colors.success : colors.inputBackground }]}>
-                             <LucideIcons.Check size={28} color={isCompleted ? '#FFF' : colors.text} />
+                            <LucideIcons.Check size={28} color={isCompleted ? '#FFF' : colors.text} />
                         </TouchableOpacity>
                     )}
                 </View>
