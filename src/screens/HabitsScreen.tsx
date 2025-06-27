@@ -21,7 +21,8 @@ type RootStackParamList = {
     EditHabit: { habit: Habit };
     SortCategories: undefined;
     SortHabits: { categoryId: string; categoryName: string };
-    HabitOverviewScreen: { habitId: string; habitName: string }; // ← Добавить
+    HabitOverviewScreen: { habitId: string; habitName: string };
+    Journal: { habitId?: string };
 };
 type NavigationProp = StackNavigationProp<RootStackParamList, "Habits">;
 
@@ -113,7 +114,7 @@ export default function HabitsScreen() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isActionModalVisible, setActionModalVisible] = useState(false);
     const [selectedHabitForAction, setSelectedHabitForAction] = useState<Habit | null>(null);
-    const [selectedHabitForDetail, setSelectedHabitForDetail] = useState<Habit | null>(null); // <-- Добавь это
+    const [selectedHabitForDetail, setSelectedHabitForDetail] = useState<Habit | null>(null);
 
     const [categoryModalVisible, setCategoryModalVisible] = useState(false);
     const [selectedCategoryForAction, setSelectedCategoryForAction] = useState<Category | null>(null);
@@ -181,7 +182,10 @@ export default function HabitsScreen() {
             [{ text: "Отмена", style: "cancel" }, { text: "Архивировать", onPress: async () => { setActionModalVisible(false); await archiveHabit(habitId); }}]);
     }, [archiveHabit]);
 
-    const handleEditHabit = (habit: Habit) => { setActionModalVisible(false); navigation.navigate('EditHabit', { habit }); };
+    const handleEditHabit = (habit: Habit) => { 
+        setActionModalVisible(false); 
+        navigation.navigate({ name: 'EditHabit', params: { habit } }); // Изменено
+    };
     const handleHabitLongPress = (habit: Habit) => {
         setSelectedHabitForAction(habit);
         setActionModalVisible(true);
@@ -190,18 +194,21 @@ export default function HabitsScreen() {
         setSelectedHabitForDetail(habit);
     };
 
-const renderHabitItem = useCallback(({ item }: { item: Habit }) => (
-    <Animated.View entering={FadeIn} exiting={FadeOut}>
-        <HabitCard habit={item} onUpdateProgress={handleUpdateProgress} onLongPress={handleHabitLongPress} onPress={handleHabitPress} streak={streaks.get(item.id) || 0} />
-    </Animated.View>
-), [handleUpdateProgress, handleHabitLongPress, handleHabitPress, currentDate, streaks]);
+    const renderHabitItem = useCallback(({ item }: { item: Habit }) => (
+        <Animated.View entering={FadeIn} exiting={FadeOut}>
+            <HabitCard habit={item} onUpdateProgress={handleUpdateProgress} onLongPress={handleHabitLongPress} onPress={handleHabitPress} streak={streaks.get(item.id) || 0} />
+        </Animated.View>
+    ), [handleUpdateProgress, handleHabitLongPress, handleHabitPress, currentDate, streaks]);
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
                 <View style={styles.headerSide} /> 
                 <Text style={[styles.screenTitle, { color: colors.text }]}>Мои привычки</Text>
-                <View style={[styles.headerSide, { justifyContent: 'flex-end' }]}>
+                <View style={[styles.headerSide, { justifyContent: 'flex-end', flexDirection: 'row' }]}>
+                    <TouchableOpacity onPress={() => navigation.navigate({ name: 'Journal', params: {} })} style={styles.headerButton}>
+                       <LucideIcons.BookText size={24} color={colors.text} />
+                    </TouchableOpacity>
                     <ModeToggle />
                 </View>
             </View>

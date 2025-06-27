@@ -9,6 +9,17 @@ export interface HabitCompletionRecord {
   target_completions: number; user_id: string;
 }
 
+export interface HabitNote {
+  id: string;
+  user_id: string;
+  habit_id: string;
+  note_date: string; // 'YYYY-MM-DD'
+  content: string;
+  created_at: string;
+  updated_at: string;
+  habit?: Habit; // Для хранения связанной привычки
+}
+
 interface HabitState {
   habits: Habit[];
   archivedHabits: Habit[];
@@ -18,6 +29,7 @@ interface HabitState {
   isLoadingCategories: boolean; 
   allCompletions: HabitCompletionRecord[]; // <-- НОВОЕ: для хранения всей истории
   streaks: Map<string, number>; // <-- Новое состояние для хранения стриков
+  notes: HabitNote[]; // НОВОЕ СОСТОЯНИЕ ДЛЯ ЗАМЕТОК
 
   fetchHabits: (userId: string) => Promise<void>;
   fetchArchivedHabits: (userId: string) => Promise<void>;
@@ -32,6 +44,10 @@ interface HabitState {
   updateHabitOrder: (habits: Habit[]) => Promise<void>;
   calculateStreaks: (userId: string) => Promise<void>; // <-- Новая функция
   fetchAllCompletions: (userId: string) => Promise<void>; // <-- НОВАЯ ФУНКЦИЯ
+  fetchAllNotes: (userId: string) => Promise<void>;
+  fetchNotesForHabit: (habitId: string) => Promise<void>;
+  addOrUpdateNote: (habitId: string, date: string, content: string) => Promise<void>;
+  deleteNote: (noteId: string) => Promise<void>;
 }
 
 export const useHabitStore = create<HabitState>((set, get) => ({
@@ -39,6 +55,7 @@ export const useHabitStore = create<HabitState>((set, get) => ({
   isLoadingHabits: false, isLoadingCategories: false, error: null, 
   streaks: new Map(),
   allCompletions: [],
+  notes: [],
 
   fetchHabits: async (userId) => {
     set({ isLoadingHabits: true });
@@ -237,5 +254,102 @@ calculateStreaks: async (userId: string) => {
       await supabase.from('categories').delete().eq('user_id', userId);
       await supabase.from('habits').delete().eq('user_id', userId);
       set({ habits: [], archivedHabits: [], categories: [], habitCompletions: [] });
-  }
+  },
+
+fetchAllNotes: async (userId) => {
+        try {
+            const { data, error } = await supabase
+                .from('habit_notes')
+                .select(`
+                    *,
+                    habits (
+                        id, user_id, name, icon,
+                        habit_categories (
+                            category_id,
+                            categories (id, name, color, icon)
+                        )
+                    )
+                `)
+                .eq('user_id', userId)
+                .order('note_date', { ascending: false });
+
+            if (error) throw error;
+
+            const notesWithHabits = (data || []).map(note => ({
+                ...note,
+                habit: {
+                    ...note.habits,
+                    categories: note.habits?.habit_categories?.map((hc: { categories: any; }) => hc.categories).filter(Boolean) || [],
+                },
+            }));
+
+            set({ notes: notesWithHabits });
+        } catch (err) {
+            console.error('Error fetching all notes:', err);
+        }
+    },
+
+  fetchNotesForHabit: async (habitId) => {
+    try {
+      const { data, error } = await supabase
+        .from('habit_notes')
+        .select('*')
+        .eq('habit_id', habitId)
+        .order('note_date', { ascending: false });
+
+      if (error) throw error;
+      set({ notes: data || [] });
+    } catch (err) {
+      console.error('Error fetching notes:', err);
+    }
+  },
+
+  addOrUpdateNote: async (habitId, date, content) => {
+    const { auth } = supabase;
+    const { data: { user } } = await auth.getUser();
+    if (!user) return;
+
+    // Ищем заметку на эту дату прямо в базе данных для надежности
+    const { data: existingNoteData } = await supabase
+        .from('habit_notes')
+        .select('id')
+        .eq('habit_id', habitId)
+        .eq('note_date', date)
+        .single();
+
+    if (existingNoteData) {
+      // Обновляем существующую заметку
+      const { data, error } = await supabase
+        .from('habit_notes')
+        .update({ content, updated_at: new Date().toISOString() })
+        .eq('id', existingNoteData.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      set(state => ({
+        notes: state.notes.map(n => n.id === existingNoteData.id ? data : n)
+      }));
+    } else {
+      // Создаем новую заметку
+      const { data, error } = await supabase
+        .from('habit_notes')
+        .insert({ habit_id: habitId, user_id: user.id, note_date: date, content })
+        .select()
+        .single();
+
+      if (error) throw error;
+      set(state => ({ notes: [...state.notes, data].sort((a,b) => b.note_date.localeCompare(a.note_date)) }));
+    }
+  },
+
+  deleteNote: async (noteId) => {
+    const { error } = await supabase
+        .from('habit_notes')
+        .delete()
+        .eq('id', noteId);
+
+    if (error) throw error;
+    set(state => ({ notes: state.notes.filter(n => n.id !== noteId) }));
+  },
 }));
