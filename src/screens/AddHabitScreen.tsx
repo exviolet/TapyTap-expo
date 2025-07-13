@@ -14,51 +14,16 @@ import {
 } from "react-native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { ThemeContext } from '../components/ThemeProvider';
+import { IconPickerModal } from "../components/IconPickerModal"; 
 import { addHabit, addCategory, fetchCategories, Category } from "../lib/habits";
-import {
-    Book,
-    Activity,
-    GraduationCap,
-    Briefcase,
-    Music,
-    Coffee,
-    Sun,
-    Moon,
-    Star,
-    Heart,
-    Lightbulb,
-    Bell,
-    Archive,
-    PlusCircle,
-    MinusCircle,
-    X,
-    Clock,
-    Check,
-} from "lucide-react-native";
+import * as LucideIcons from "lucide-react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { format } from "date-fns"; // Добавляем для форматирования времени
 import { useHabitStore } from "../store/useHabitStore";
 
 // Маппинг иконок для выбора
-const iconMap: { [key: string]: React.ComponentType<any> } = {
-    Book,
-    Activity,
-    GraduationCap,
-    Briefcase,
-    Music,
-    Coffee,
-    Sun,
-    Moon,
-    Star,
-    Heart,
-    Lightbulb,
-    Bell,
-    Archive,
-    PlusCircle,
-    MinusCircle,
-    Clock,
-};
+const iconMap: any = LucideIcons;
 
 // Список доступных иконок
 const availableIcons = [
@@ -109,6 +74,7 @@ const themeContext = useContext(ThemeContext);
     }
 
     const { colors, isDark } = themeContext; // Деструктурируем после проверки
+    const [isIconPickerVisible, setIconPickerVisible] = useState(false); // <-- Новое состояние для модалки
 
     const [habitType, setHabitType] = useState<"checkoff" | "quantitative">("checkoff");
     const [unit, setUnit] = useState("");
@@ -474,7 +440,7 @@ const handleAddHabit = async () => {
                                         handleTargetCompletionsChange(targetCompletions - 1)
                                     }
                                 >
-                                    <MinusCircle size={20} color="#FFFFFF" />
+                                    <LucideIcons.MinusCircle size={20} color="#FFFFFF" />
                                 </TouchableOpacity>
                                 <TextInput
                                     style={[
@@ -496,7 +462,7 @@ const handleAddHabit = async () => {
                                         handleTargetCompletionsChange(targetCompletions + 1)
                                     }
                                 >
-                                    <PlusCircle size={20} color="#FFFFFF" />
+                                    <LucideIcons.PlusCircle size={20} color="#FFFFFF" />
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -542,71 +508,26 @@ const handleAddHabit = async () => {
                     </View>
                 </View>
 
-                <View
-                    style={[
-                        styles.inputGroup,
-                        { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
-                    ]}
-                >
-                    <Text
-                        style={[styles.label, { color: colors.text, marginBottom: 10 }]}
+                <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+                    <Text style={[styles.label, { color: colors.text }]}>Иконка привычки</Text>
+                    <TouchableOpacity 
+                        style={styles.iconSelectionContainer}
+                        onPress={() => setIconPickerVisible(true)}
                     >
-                        Иконка привычки
-                    </Text>
-                    <View style={styles.iconSelectionContainer}>
-                        <View
-                            style={[
-                                styles.currentIconPreview,
-                                { backgroundColor: colors.inputBorder },
-                            ]}
-                        >
-                            <CurrentHabitIcon
-                                size={32}
-                                color={colors.accent}
-                                strokeWidth={2}
-                            />
+                        <View style={[styles.currentIconPreview, { backgroundColor: colors.inputBorder }]}>
+                            <CurrentHabitIcon size={32} color={colors.accent} strokeWidth={2} />
                         </View>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.iconScroll}
-                        >
-                            {availableIcons.map((iconName) => {
-                                const IconComponent = iconMap[iconName];
-                                if (!IconComponent) return null;
-                                return (
-                                    <TouchableOpacity
-                                        key={iconName}
-                                        style={[
-                                            styles.iconOption,
-                                            {
-                                                backgroundColor:
-                                                    habitIcon === iconName
-                                                        ? colors.accent
-                                                        : colors.inputBackground,
-                                                borderColor:
-                                                    habitIcon === iconName
-                                                        ? colors.accent
-                                                        : colors.inputBorder,
-                                            },
-                                        ]}
-                                        onPress={() => setHabitIcon(iconName)}
-                                    >
-                                        <IconComponent
-                                            size={24}
-                                            color={
-                                                habitIcon === iconName
-                                                    ? "#FFFFFF"
-                                                    : colors.text
-                                            }
-                                            strokeWidth={2}
-                                        />
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </ScrollView>
-                    </View>
+                        <Text style={[styles.iconSelectText, {color: colors.text}]}>Нажмите, чтобы добавить</Text>
+                        <LucideIcons.ChevronRight size={22} color={colors.textSecondary} />
+                    </TouchableOpacity>
                 </View>
+
+                <IconPickerModal 
+                    visible={isIconPickerVisible}
+                    onClose={() => setIconPickerVisible(false)}
+                    onSelectIcon={setHabitIcon}
+                    currentIcon={habitIcon}
+                />
 
                 <View
                     style={[
@@ -624,7 +545,7 @@ const handleAddHabit = async () => {
                             const CatIcon =
                                 category.icon && iconMap[category.icon]
                                     ? iconMap[category.icon]
-                                    : Book;
+                                    : LucideIcons.Book;
                             return (
                                 <TouchableOpacity
                                     key={category.id}
@@ -678,7 +599,7 @@ const handleAddHabit = async () => {
                             ]}
                             onPress={() => setShowAddCategoryModal(true)}
                         >
-                            <PlusCircle
+                            <LucideIcons.PlusCircle
                                 size={14}
                                 color={colors.text}
                                 style={{ marginRight: 5 }}
@@ -723,62 +644,24 @@ const handleAddHabit = async () => {
                                 value={newCategoryName}
                                 onChangeText={setNewCategoryName}
                             />
-                            <Text style={[styles.label, { color: colors.text }]}>
-                                Иконка категории:
-                            </Text>
-                            <View style={styles.iconSelectionContainer}>
-                                <View
-                                    style={[
-                                        styles.currentIconPreview,
-                                        { backgroundColor: colors.inputBorder },
-                                    ]}
-                                >
-                                    <NewCategoryPreviewIcon
-                                        size={32}
-                                        color={colors.accent}
-                                        strokeWidth={2}
-                                    />
-                                </View>
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={styles.iconScroll}
-                                >
-                                    {availableIcons.map((iconName) => {
-                                        const IconComponent = iconMap[iconName];
-                                        if (!IconComponent) return null;
-                                        return (
-                                            <TouchableOpacity
-                                                key={iconName}
-                                                style={[
-                                                    styles.iconOption,
-                                                    {
-                                                        backgroundColor:
-                                                            newCategoryIcon === iconName
-                                                                ? colors.accent
-                                                                : colors.inputBackground,
-                                                        borderColor:
-                                                            newCategoryIcon === iconName
-                                                                ? colors.accent
-                                                                : colors.inputBorder,
-                                                    },
-                                                ]}
-                                                onPress={() => setNewCategoryIcon(iconName)}
-                                            >
-                                                <IconComponent
-                                                    size={24}
-                                                    color={
-                                                        newCategoryIcon === iconName
-                                                            ? "#FFFFFF"
-                                                            : colors.text
-                                                    }
-                                                    strokeWidth={2}
-                                                />
-                                            </TouchableOpacity>
-                                        );
-                                    })}
-                                </ScrollView>
-                            </View>
+                    <Text style={[styles.label, { color: colors.text }]}>Иконка привычки</Text>
+                    <TouchableOpacity 
+                        style={styles.iconSelectionContainer}
+                        onPress={() => setIconPickerVisible(true)}
+                    >
+                        <View style={[styles.currentIconPreview, { backgroundColor: colors.inputBorder }]}>
+                            <CurrentHabitIcon size={32} color={colors.accent} strokeWidth={2} />
+                        </View>
+                        <Text style={[styles.iconSelectText, {color: colors.text}]}>Нажмите, чтобы добавить</Text>
+                        <LucideIcons.ChevronRight size={22} color={colors.textSecondary} />
+                    </TouchableOpacity>
+
+                <IconPickerModal 
+                    visible={isIconPickerVisible}
+                    onClose={() => setIconPickerVisible(false)}
+                    onSelectIcon={setHabitIcon}
+                    currentIcon={habitIcon}
+                />
 
                             <Text style={[styles.label, { color: colors.text }]}>
                                 Цвет категории:
@@ -795,7 +678,7 @@ const handleAddHabit = async () => {
                                         style={[styles.colorButton, { backgroundColor: item }]}
                                     >
                                         {newCategoryColor === item && (
-                                            <Check
+                                            <LucideIcons.Check
                                                 size={16}
                                                 color="#FFFFFF"
                                                 strokeWidth={2}
@@ -897,7 +780,7 @@ const handleAddHabit = async () => {
                                         handleRemoveReminder(reminder.time)
                                     }
                                 >
-                                    <X size={20} color={colors.danger} />
+                                    <LucideIcons.X size={20} color={colors.danger} />
                                 </TouchableOpacity>
                             </View>
                         ))
@@ -906,7 +789,7 @@ const handleAddHabit = async () => {
                         style={styles.addReminderButton}
                         onPress={() => setReminderModalVisible(true)}
                     >
-                        <PlusCircle size={20} color={colors.accent} />
+                        <LucideIcons.PlusCircle size={20} color={colors.accent} />
                         <Text
                             style={[
                                 styles.addReminderText,
@@ -1155,16 +1038,23 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         borderWidth: 1,
     },
-    iconSelectionContainer: {
-        flexDirection: "row",
-        alignItems: "center",
+    iconSelectionContainer: { // <-- Этот стиль уже есть, мы просто будем использовать его по-новому
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
     },
     currentIconPreview: {
+        width: 52, // <-- Зададим фиксированный размер
+        height: 52,
         borderRadius: 12,
         padding: 10,
         marginRight: 15,
-        alignItems: "center",
-        justifyContent: "center",
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    iconSelectText: { // <-- Новый стиль
+        fontSize: 16,
+        fontWeight: '500',
     },
     iconScroll: {
         flexGrow: 1,

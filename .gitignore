@@ -35,3 +35,7 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# supabase/firebase-database
+src/supabase/supabaseClient.ts
+src/firebase/firebaseConfig.ts

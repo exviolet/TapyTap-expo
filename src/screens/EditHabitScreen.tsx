@@ -4,11 +4,9 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, StyleSheet,
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ThemeContext } from '../components/ThemeProvider';
+import { IconPickerModal } from '../components/IconPickerModal'; // <-- Добавляем импорт
 import { Habit, updateHabit, fetchCategories, Category, addCategory } from '../lib/habits';
-import {
-    Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart, Check,
-    Lightbulb, Bell, Archive, PlusCircle, MinusCircle, X, Clock
-} from "lucide-react-native";
+import * as LucideIcons from "lucide-react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from "react-native-reanimated";
 import { format } from 'date-fns';
@@ -25,10 +23,7 @@ type EditHabitScreenRouteProp = RouteProp<RootStackParamList, 'EditHabit'>;
 type EditHabitScreenNavigationProp = StackNavigationProp<RootStackParamList, 'EditHabit'>;
 
 // Маппинг иконок
-const iconMap: { [key: string]: React.ComponentType<any> } = {
-    Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart,
-    Lightbulb, Bell, Archive, Clock, PlusCircle, MinusCircle, X
-};
+const iconMap: any = LucideIcons;
 
 const availableIcons = [
     'Book', 'Activity', 'GraduationCap', 'Briefcase', 'Music', 'Coffee', 'Sun', 'Moon', 'Star', 'Heart',
@@ -58,6 +53,7 @@ export default function EditHabitScreen() {
     const route = useRoute<EditHabitScreenRouteProp>();
     const { user } = useAuth();
 
+    const [isIconPickerVisible, setIconPickerVisible] = useState(false); // <-- Новое состояние
     const { habit: initialHabit } = route.params;
 
     // Состояния для полей формы
@@ -343,7 +339,7 @@ export default function EditHabitScreen() {
                                     style={[styles.targetButton, { backgroundColor: colors.accent }]}
                                     onPress={() => handleTargetCompletionsChange(targetCompletions - 1)}
                                 >
-                                    <MinusCircle size={20} color="#FFFFFF" />
+                                    <LucideIcons.MinusCircle size={20} color="#FFFFFF" />
                                 </TouchableOpacity>
                                 <TextInput
                                     style={[styles.targetInput, { color: colors.text, borderColor: colors.inputBorder }]}
@@ -358,7 +354,7 @@ export default function EditHabitScreen() {
                                     style={[styles.targetButton, { backgroundColor: colors.accent }]}
                                     onPress={() => handleTargetCompletionsChange(targetCompletions + 1)}
                                 >
-                                    <PlusCircle size={20} color="#FFFFFF" />
+                                    <LucideIcons.PlusCircle size={20} color="#FFFFFF" />
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -366,40 +362,31 @@ export default function EditHabitScreen() {
                 )}
 
                 <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-                    <Text style={[styles.label, { color: colors.text, marginBottom: 10 }]}>Иконка привычки</Text>
-                    <View style={styles.iconSelectionContainer}>
+                    <Text style={[styles.label, { color: colors.text }]}>Иконка привычки</Text>
+                    <TouchableOpacity 
+                        style={styles.iconSelectionContainer}
+                        onPress={() => setIconPickerVisible(true)}
+                    >
                         <View style={[styles.currentIconPreview, { backgroundColor: colors.inputBorder }]}>
                             <CurrentHabitIcon size={32} color={colors.accent} strokeWidth={2} />
                         </View>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.iconScroll}>
-                            {availableIcons.map((iconName) => {
-                                const IconComponent = iconMap[iconName];
-                                if (!IconComponent) return null;
-                                return (
-                                    <TouchableOpacity
-                                        key={iconName}
-                                        style={[
-                                            styles.iconOption,
-                                            {
-                                                backgroundColor: selectedIcon === iconName ? colors.accent : colors.inputBackground,
-                                                borderColor: selectedIcon === iconName ? colors.accent : colors.inputBorder,
-                                            },
-                                        ]}
-                                        onPress={() => setSelectedIcon(iconName)}
-                                    >
-                                        <IconComponent size={24} color={selectedIcon === iconName ? '#FFFFFF' : colors.text} strokeWidth={2} />
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </ScrollView>
-                    </View>
+                        <Text style={[styles.iconSelectText, {color: colors.text}]}>Нажмите, чтобы изменить</Text>
+                        <LucideIcons.ChevronRight size={22} color={colors.textSecondary} style={{marginLeft: 'auto'}} />
+                    </TouchableOpacity>
                 </View>
+
+                <IconPickerModal 
+                    visible={isIconPickerVisible}
+                    onClose={() => setIconPickerVisible(false)}
+                    onSelectIcon={setSelectedIcon}
+                    currentIcon={selectedIcon}
+                />
 
                 <View style={[styles.inputGroup, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
                     <Text style={[styles.label, { color: colors.text, marginBottom: 10 }]}>Категории </Text>
                     <View style={styles.categoriesContainer}>
                         {allCategories.map((category) => {
-                            const CatIcon = category.icon && iconMap[category.icon] ? iconMap[category.icon] : Book;
+                            const CatIcon = category.icon && iconMap[category.icon] ? iconMap[category.icon] : LucideIcons.Book;
                             return (
                                 <TouchableOpacity
                                     key={category.id}
@@ -432,7 +419,7 @@ export default function EditHabitScreen() {
                             ]}
                             onPress={() => setShowAddCategoryModal(true)}
                         >
-                            <PlusCircle size={14} color={colors.text} />
+                            <LucideIcons.PlusCircle size={14} color={colors.text} />
                             <Text style={[styles.categoryChipText, { color: colors.text }]}>Добавить категорию</Text>
                         </TouchableOpacity>
                     </View>
@@ -486,7 +473,7 @@ export default function EditHabitScreen() {
                                         onPress={() => setNewCategoryColor(item)}
                                         style={[styles.colorButton, { backgroundColor: item }]}
                                     >
-                                        {newCategoryColor === item && <Check size={16} color="#FFFFFF" strokeWidth={2} />}
+                                        {newCategoryColor === item && <LucideIcons.Check size={16} color="#FFFFFF" strokeWidth={2} />}
                                     </TouchableOpacity>
                                 ))}
                             </ScrollView>
@@ -517,13 +504,13 @@ export default function EditHabitScreen() {
                                     {reminder.days.map((d) => daysOfWeek.find((dw) => dw.key === d)?.label).filter(Boolean).join(", ") || "Дни не выбраны"}
                                 </Text>
                                 <TouchableOpacity onPress={() => handleRemoveReminder(reminder.time)}>
-                                    <X size={20} color={colors.danger} />
+                                    <LucideIcons.X size={20} color={colors.danger} />
                                 </TouchableOpacity>
                             </View>
                         ))
                     )}
                     <TouchableOpacity style={styles.addReminderButton} onPress={() => setReminderModalVisible(true)}>
-                        <PlusCircle size={20} color={colors.accent} />
+                        <LucideIcons.PlusCircle size={20} color={colors.accent} />
                         <Text style={[styles.addReminderText, { color: colors.accent }]}>Добавить напоминание</Text>
                     </TouchableOpacity>
                 </View>
@@ -644,8 +631,24 @@ const styles = StyleSheet.create({
     targetCompletionsControl: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10 },
     targetButton: { padding: 12, borderRadius: 10, marginHorizontal: 10 },
     targetInput: { width: 80, textAlign: 'center', fontSize: 20, fontWeight: 'bold', paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
-    iconSelectionContainer: { flexDirection: 'row', alignItems: 'center' },
-    currentIconPreview: { borderRadius: 12, padding: 10, marginRight: 15, alignItems: 'center', justifyContent: 'center' },
+    iconSelectionContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+    },
+    currentIconPreview: {
+        width: 52,
+        height: 52,
+        borderRadius: 12,
+        padding: 10,
+        marginRight: 15,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    iconSelectText: {
+        fontSize: 16,
+        fontWeight: '500',
+    },
     iconScroll: { flexGrow: 1, alignItems: 'center' },
     iconOption: { padding: 10, borderRadius: 12, marginHorizontal: 5, borderWidth: 2 },
     categoriesContainer: { flexDirection: 'row', flexWrap: 'wrap' },

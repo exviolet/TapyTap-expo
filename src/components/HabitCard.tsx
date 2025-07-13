@@ -45,18 +45,20 @@ const HabitCard: React.FC<HabitCardProps> = ({ habit, streak, onUpdateProgress, 
                 <View style={styles.detailsContainer}>
                     <View style={styles.titleContainer}>
                         <Text style={[styles.habitName, { color: colors.text }]}>{habit.name}</Text>
-                        {streak > 1 && (
+                        {streak > 0 && (
                             <View style={styles.streakContainer}>
                                 <LucideIcons.Flame size={14} color="#FF9500" />
                                 <Text style={styles.streakText}>{streak}</Text>
                             </View>
                         )}
                     </View>
-                    <Text style={[styles.categoryText, { color: colors.textFaded }]} numberOfLines={1}>
-                        {habit.categories && habit.categories.length > 0
-                            ? habit.categories.map(c => c.name).join(' • ')
-                            : ''}
-                    </Text>
+                    <View style={styles.categoriesRow}>
+                        {habit.categories?.slice(0, 2).map(cat => (
+                            <View key={cat.id} style={[styles.categoryChip, { backgroundColor: cat.color + '20' }]}>
+                                <Text style={[styles.categoryChipText, { color: cat.color }]}>{cat.name}</Text>
+                            </View>
+                        ))}
+                    </View>
                     <View style={[styles.progressBar, {backgroundColor: colors.inputBackground}]}>
                         <View style={[styles.progressFill, { width: `${(habit.progress / habit.target_completions) * 100}%`, backgroundColor: colors.accent }]} />
                     </View>
@@ -115,6 +117,22 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '700',
         marginLeft: 4,
+    },
+    categoriesRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginTop: 4,
+    },
+    categoryChip: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 6,
+        marginRight: 6,
+        marginBottom: 4,
+    },
+    categoryChipText: {
+        fontSize: 11,
+        fontWeight: '600',
     },
     categoryText: { fontSize: 13, marginBottom: 8 },
     progressBar: { height: 5, borderRadius: 2.5, overflow: 'hidden' },
