@@ -1,7 +1,7 @@
 // src/components/HabitCard.tsx
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import React, { useContext, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { ThemeContext } from './ThemeProvider';
 import { Habit } from '../lib/habits';
 import * as LucideIcons from "lucide-react-native";

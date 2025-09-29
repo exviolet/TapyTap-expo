@@ -1,3 +1,4 @@
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import React, { useState, useEffect, useContext, useCallback } from "react";
 import { supabase } from "../supabase/supabaseClient"; // Добавьте эту строку
 import {
@@ -18,7 +19,6 @@ import { IconPickerModal } from "../components/IconPickerModal";
 import { addHabit, addCategory, fetchCategories, Category } from "../lib/habits";
 import * as LucideIcons from "lucide-react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { format } from "date-fns"; // Добавляем для форматирования времени
 import { useHabitStore } from "../store/useHabitStore";
 

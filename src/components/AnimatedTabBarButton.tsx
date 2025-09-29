@@ -1,7 +1,7 @@
 // src/components/AnimatedTabBarButton.tsx
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolateColor } from 'react-native-reanimated';
 import React, { useEffect } from 'react';
 import { GestureResponderEvent, TouchableOpacity, Text, View, StyleSheet } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolateColor } from 'react-native-reanimated';
 import * as LucideIcons from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
 import { useAnimatedProps } from 'react-native-reanimated';

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --dev-client",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web"
@@ -18,15 +18,13 @@
     "@supabase/supabase-js": "^2.49.9",
     "date-fns": "^4.1.0",
     "expo": "53.0.18",
-    "expo-av": "15.1.7",
-    "expo-datetimepicker": "^1.0.3",
+    "expo-av": "~15.1.7",
     "expo-image-picker": "~16.1.4",
+    "expo-datetimepicker": "^1.0.3",
     "expo-linear-gradient": "~14.1.5",
     "expo-secure-store": "~14.2.3",
     "expo-status-bar": "~2.2.3",
     "firebase": "^11.8.1",
-    "i18next": "^25.2.1",
-    "lucide-react-native": "^0.513.0",
     "react": "19.0.0",
     "react-i18next": "^15.5.2",
     "react-native": "0.79.5",
@@ -39,18 +37,15 @@
     "react-native-screens": "^4.11.1",
     "react-native-svg": "15.11.2",
     "react-native-url-polyfill": "^2.0.0",
-    "react-native-vector-icons": "^10.2.0",
     "zustand": "^5.0.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "19.0.0",
     "@types/react-native-vector-icons": "^6.4.18",
-    "typescript": "~5.8.3"
-  },
-  "overrides": {
-    "react": "19.0.0",
-    "@types/react": "19.0.0"
+    "babel-preset-expo": "~11.0.0",
+    "lucide-react-native": "^0.544.0",
+    "typescript": "~5.9.2"
   },
   "private": true
 }

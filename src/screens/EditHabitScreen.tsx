@@ -1,4 +1,5 @@
 // src/screens/EditHabitScreen.tsx
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from "react-native-reanimated";
 import React, { useState, useContext, useCallback, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, StyleSheet, Platform, Modal, Pressable } from 'react-native';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -8,7 +9,6 @@ import { IconPickerModal } from '../components/IconPickerModal'; // <-- Доба
 import { Habit, updateHabit, fetchCategories, Category, addCategory } from '../lib/habits';
 import * as LucideIcons from "lucide-react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from "react-native-reanimated";
 import { format } from 'date-fns';
 import { supabase } from '../supabase/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
