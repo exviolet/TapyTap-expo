@@ -1,6 +1,5 @@
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
-import React, { useState, useEffect, useContext, useCallback } from "react";
-import { supabase } from "../supabase/supabaseClient"; // Добавьте эту строку
+import React, { useState, useEffect, useContext } from "react";
 import {
     View,
     Text,
@@ -16,11 +15,12 @@ import {
 import { StackNavigationProp } from "@react-navigation/stack";
 import { ThemeContext } from '../components/ThemeProvider';
 import { IconPickerModal } from "../components/IconPickerModal"; 
-import { addHabit, addCategory, fetchCategories, Category } from "../lib/habits";
+import { Category } from "../types";
 import * as LucideIcons from "lucide-react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { format } from "date-fns"; // Добавляем для форматирования времени
 import { useHabitStore } from "../store/useHabitStore";
+import { useAuth } from "../contexts/AuthContext";
 
 // Маппинг иконок для выбора
 const iconMap: any = LucideIcons;
@@ -74,6 +74,9 @@ const themeContext = useContext(ThemeContext);
     }
 
     const { colors, isDark } = themeContext; // Деструктурируем после проверки
+    const { user } = useAuth();
+    const { categories, fetchCategories, addCategory, addHabit } = useHabitStore();
+    const allCategories = categories.filter((cat) => cat.id !== "All" && cat.id !== "Uncategorized");
     const [isIconPickerVisible, setIconPickerVisible] = useState(false); // <-- Новое состояние для модалки
 
     const [habitType, setHabitType] = useState<"checkoff" | "quantitative">("checkoff");
@@ -87,7 +90,6 @@ const themeContext = useContext(ThemeContext);
     const [targetCompletions, setTargetCompletions] = useState(1);
     const [habitIcon, setHabitIcon] = useState("Book");
     const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
-    const [allCategories, setAllCategories] = useState<Category[]>([]);
     // Состояния для напоминаний
     const [reminders, setReminders] = useState<Reminder[]>([]);
     const [isReminderModalVisible, setReminderModalVisible] = useState(false);
@@ -140,22 +142,9 @@ const themeContext = useContext(ThemeContext);
     };
 
     // Загрузка категорий
-    const loadCategories = useCallback(async () => {
-        try {
-            const fetchedCategories = await fetchCategories();
-            const filtered = fetchedCategories.filter(
-                (cat) => cat.id !== "All" && cat.id !== "Без категории"
-            );
-            setAllCategories(filtered);
-        } catch (error) {
-            console.error("Error loading categories:", error);
-            Alert.alert("Ошибка", "Не удалось загрузить категории.");
-        }
-    }, []);
-
     useEffect(() => {
-        loadCategories();
-    }, [loadCategories]);
+        if (user?.id) fetchCategories(user.id);
+    }, [user?.id, fetchCategories]);
 
     // Обработчик изменения целевого количества выполнений
     const handleTargetCompletionsChange = (value: number) => {
@@ -168,8 +157,9 @@ const themeContext = useContext(ThemeContext);
             Alert.alert("Ошибка", "Название новой категории не может быть пустым.");
             return;
         }
+        if (!user?.id) return;
         try {
-            const addedCategory = await addCategory({
+            const addedCategory = await addCategory(user.id, {
                 name: newCategoryName.trim(),
                 color: newCategoryColor,
                 icon: newCategoryIcon,
@@ -179,7 +169,6 @@ const themeContext = useContext(ThemeContext);
             setNewCategoryColor("#6A0DAD");
             setNewCategoryIcon("Book");
             setShowAddCategoryModal(false);
-            await loadCategories();
         } catch (error) {
             console.error("Error adding new category:", error);
             Alert.alert(
@@ -251,8 +240,7 @@ const handleAddHabit = async () => {
 
     const goalSeriesValue =
         goalSeries === "Ежедневно" ? 1 : goalSeries === "Неделя" ? 7 : 30;
-    const { data: { user } } = await supabase.auth.getUser(); // Получаем userId
-    if (!user) {
+    if (!user?.id) {
         Alert.alert("Ошибка", "Пользователь не авторизован.");
         return;
     }
@@ -260,6 +248,7 @@ const handleAddHabit = async () => {
     setLoading(true);
     try {
         await addHabit(
+            user.id,
             {
                 name: name.trim(),
                 description: description.trim(),
@@ -267,14 +256,11 @@ const handleAddHabit = async () => {
                 goal_series: goalSeriesValue,
                 icon: habitIcon,
                 target_completions: targetCompletions,
-                is_archived: false,
                 type: habitType,
                 unit: habitType === "quantitative" ? unit.trim() : null,
             },
             selectedCategories.map((cat) => cat.id)
         );
-        // Обновляем список привычек после добавления
-        await useHabitStore.getState().fetchHabits(user.id);
         Alert.alert("Успех", "Привычка успешно добавлена!");
         navigation.goBack();
     } catch (error) {

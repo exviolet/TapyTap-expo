@@ -5,7 +5,9 @@ import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-nativ
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ThemeContext } from '../components/ThemeProvider';
-import { Category, fetchCategories, updateCategoryOrder } from '../lib/habits';
+import { Category } from '../types';
+import { useHabitStore } from '../store/useHabitStore';
+import { useAuth } from '../contexts/AuthContext';
 import * as LucideIcons from "lucide-react-native";
 
 const iconMap: any = LucideIcons;
@@ -19,22 +21,26 @@ type NavigationProp = StackNavigationProp<RootStackParamList, "SortCategories">;
 export default function SortCategoriesScreen() {
     const { colors } = useContext(ThemeContext)!;
     const navigation = useNavigation<NavigationProp>();
+    const { user } = useAuth();
+    const { fetchCategories, updateCategoryOrder } = useHabitStore();
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
     const loadCategories = useCallback(async () => {
+        if (!user?.id) return;
         setLoading(true);
         try {
-            const fetchedCategories = await fetchCategories();
-            const realCategories = fetchedCategories.filter(cat => cat.id !== "All" && cat.id !== "Uncategorized");
+            await fetchCategories(user.id);
+            // Локальная копия для перетаскивания; в стор попадает только по «Готово»
+            const realCategories = useHabitStore.getState().categories.filter(cat => cat.id !== "All" && cat.id !== "Uncategorized");
             setCategories(realCategories);
         } catch (error) {
             Alert.alert("Ошибка", "Не удалось загрузить категории.");
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [user?.id, fetchCategories]);
 
     useFocusEffect(useCallback(() => { loadCategories(); }, [loadCategories]));
 

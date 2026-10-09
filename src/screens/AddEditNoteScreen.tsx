@@ -7,7 +7,7 @@ import { useHabitStore, HabitNote } from '../store/useHabitStore';
 import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 import * as LucideIcons from 'lucide-react-native';
-import { Habit } from '@/lib/habits';
+import { Habit } from '../types';
 
 type RootStackParamList = { AddEditNote: { note?: HabitNote, habitId?: string } };
 type AddEditNoteRouteProp = RouteProp<RootStackParamList, 'AddEditNote'>;

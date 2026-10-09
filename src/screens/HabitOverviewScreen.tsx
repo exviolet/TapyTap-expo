@@ -5,7 +5,7 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { ThemeContext } from '../components/ThemeProvider';
 import { useHabitStore } from '../store/useHabitStore';
-import { Habit } from '@/lib/habits';
+import { Habit } from '../types';
 import * as LucideIcons from 'lucide-react-native';
 import Heatmap from '../components/Heatmap';
 

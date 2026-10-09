@@ -3,7 +3,7 @@ import React, { useContext, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { ThemeContext } from './ThemeProvider';
 import { HabitCompletionRecord } from '../store/useHabitStore';
-import { Habit } from '@/lib/habits';
+import { Habit } from '../types';
 import { Svg, Rect } from 'react-native-svg';
 import { format, parseISO, subDays, getDay, getMonth, eachDayOfInterval } from 'date-fns';
 import { ru } from 'date-fns/locale';

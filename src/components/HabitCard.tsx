@@ -3,7 +3,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-na
 import React, { useContext, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ThemeContext } from './ThemeProvider';
-import { Habit } from '../lib/habits';
+import { Habit } from '../types';
 import * as LucideIcons from "lucide-react-native";
 
 interface HabitCardProps {

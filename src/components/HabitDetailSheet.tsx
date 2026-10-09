@@ -20,7 +20,7 @@ import {
 } from "react-native";
 import BottomSheet, { BottomSheetBackdrop } from "@gorhom/bottom-sheet";
 import { ThemeContext } from "./ThemeProvider";
-import { Habit } from "../lib/habits";
+import { Habit } from "../types";
 import { useHabitStore, HabitNote } from "../store/useHabitStore";
 import * as LucideIcons from "lucide-react-native";
 import Heatmap from "./Heatmap";

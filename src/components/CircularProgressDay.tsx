@@ -4,7 +4,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Svg, Circle } from 'react-native-svg';
 import { ThemeContext } from './ThemeProvider';
 import { DateData } from 'react-native-calendars';
-import { Habit } from '../lib/habits';
+import { Habit } from '../types';
 
 interface CustomDayProps {
   date?: DateData;

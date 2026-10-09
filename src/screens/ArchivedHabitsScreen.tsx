@@ -5,7 +5,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { ThemeContext } from '../components/ThemeProvider';
 import { useHabitStore } from '../store/useHabitStore';
 import { useAuth } from '../contexts/AuthContext';
-import { Habit } from '../lib/habits';
+import { Habit } from '../types';
 import * as LucideIcons from 'lucide-react-native';
 
 const ArchivedHabitItem: React.FC<{ item: Habit }> = ({ item }) => {

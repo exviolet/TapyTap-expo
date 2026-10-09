@@ -2,7 +2,7 @@
 import React, { useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ThemeContext } from './ThemeProvider';
-import { Habit } from '../lib/habits';
+import { Habit } from '../types';
 import { CheckCircle, XCircle, Slash } from 'lucide-react-native'; // Добавим Slash для не начатых
 import {
     Book, Activity, GraduationCap, Briefcase, Music, Coffee, Sun, Moon, Star, Heart, Check,

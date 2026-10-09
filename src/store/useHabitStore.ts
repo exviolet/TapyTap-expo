@@ -1,7 +1,7 @@
 // src/store/useHabitStore.ts
 import { create } from 'zustand';
 import { supabase } from '../supabase/supabaseClient';
-import { Habit, Category } from '../lib/habits';
+import { Habit, Category, HabitInput, CategoryInput } from '../types';
 import { format, subDays, differenceInCalendarDays  } from 'date-fns';
 
 export interface HabitCompletionRecord {
@@ -40,6 +40,10 @@ interface HabitState {
   unarchiveHabit: (habitId: string) => Promise<void>;
   deleteHabitPermanently: (habitId: string) => Promise<void>;
   deleteAllUserData: (userId: string) => Promise<void>;
+  addHabit: (userId: string, habit: HabitInput, categoryIds: string[]) => Promise<void>;
+  updateHabit: (userId: string, habitId: string, habit: HabitInput, categoryIds: string[]) => Promise<void>;
+  addCategory: (userId: string, category: CategoryInput) => Promise<Category>;
+  updateCategoryOrder: (categories: Category[]) => Promise<void>;
   deleteCategory: (categoryId: string) => Promise<void>;
   updateHabitOrder: (habits: Habit[]) => Promise<void>;
   calculateStreaks: (userId: string) => Promise<void>; // <-- Новая функция
@@ -52,7 +56,7 @@ interface HabitState {
 
 export const useHabitStore = create<HabitState>((set, get) => ({
   habits: [], archivedHabits: [], habitCompletions: [], categories: [],
-  isLoadingHabits: false, isLoadingCategories: false, error: null, 
+  isLoadingHabits: false, isLoadingCategories: false,
   streaks: new Map(),
   allCompletions: [],
   notes: [],
@@ -234,6 +238,55 @@ calculateStreaks: async (userId: string) => {
     await supabase.from('habits').delete().eq('id', habitId);
   },
 
+  addHabit: async (userId, habit, categoryIds) => {
+    // Новая привычка встаёт в конец списка
+    const { data: last } = await supabase.from('habits').select('order_index').eq('user_id', userId)
+        .order('order_index', { ascending: false }).limit(1);
+    const { data: created, error } = await supabase.from('habits')
+        .insert({ ...habit, user_id: userId, is_archived: false, order_index: (last?.[0]?.order_index ?? -1) + 1 })
+        .select('id').single();
+    if (error) throw error;
+    if (categoryIds.length > 0) {
+        const { error: linkError } = await supabase.from('habit_categories')
+            .insert(categoryIds.map(category_id => ({ habit_id: created.id, category_id })));
+        if (linkError) throw linkError;
+    }
+    await get().fetchHabits(userId);
+  },
+
+  updateHabit: async (userId, habitId, habit, categoryIds) => {
+    const { error } = await supabase.from('habits')
+        .update({ ...habit, updated_at: new Date().toISOString() }).eq('id', habitId);
+    if (error) throw error;
+    // Связи с категориями пересоздаём целиком
+    const { error: unlinkError } = await supabase.from('habit_categories').delete().eq('habit_id', habitId);
+    if (unlinkError) throw unlinkError;
+    if (categoryIds.length > 0) {
+        const { error: linkError } = await supabase.from('habit_categories')
+            .insert(categoryIds.map(category_id => ({ habit_id: habitId, category_id })));
+        if (linkError) throw linkError;
+    }
+    await get().fetchHabits(userId);
+  },
+
+  addCategory: async (userId, category) => {
+    // order_index проставляет БД (sequence), новая категория встаёт в конец
+    const { data, error } = await supabase.from('categories')
+        .insert({ ...category, user_id: userId }).select().single();
+    if (error) throw error;
+    await get().fetchCategories(userId);
+    return data;
+  },
+
+  updateCategoryOrder: async (categories) => {
+    const synthetic = get().categories.filter(c => c.id === 'All' || c.id === 'Uncategorized');
+    set({ categories: [...synthetic, ...categories] });
+    const results = await Promise.all(categories.map((category, index) =>
+        supabase.from('categories').update({ order_index: index }).eq('id', category.id)));
+    const failed = results.find(r => r.error);
+    if (failed) throw failed.error;
+  },
+
   deleteCategory: async (categoryId) => {
     await supabase.from('habit_categories').delete().eq('category_id', categoryId);
     await supabase.from('categories').delete().eq('id', categoryId);
@@ -248,9 +301,8 @@ calculateStreaks: async (userId: string) => {
   },
   
   deleteAllUserData: async (userId: string) => {
-      console.log(`Deleting all data for user: ${userId}`);
+      // habit_categories без колонки user_id — связи удалятся каскадом вместе с habits/categories
       await supabase.from('habit_completions').delete().eq('user_id', userId);
-      await supabase.from('habit_categories').delete().eq('user_id', userId);
       await supabase.from('categories').delete().eq('user_id', userId);
       await supabase.from('habits').delete().eq('user_id', userId);
       set({ habits: [], archivedHabits: [], categories: [], habitCompletions: [] });

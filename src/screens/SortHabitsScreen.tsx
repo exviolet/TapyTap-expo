@@ -5,7 +5,7 @@ import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-nativ
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ThemeContext } from '../components/ThemeProvider';
 import { useHabitStore } from '../store/useHabitStore';
-import { Habit } from '../lib/habits';
+import { Habit } from '../types';
 import { X, CheckCircle, Menu } from 'lucide-react-native';
 
 export default function SortHabitsScreen() {

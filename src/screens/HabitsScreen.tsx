@@ -23,7 +23,7 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { ThemeContext } from "../components/ThemeProvider";
 import { useHabitStore } from "../store/useHabitStore";
-import { Habit, Category } from "../lib/habits";
+import { Habit, Category } from "../types";
 import * as LucideIcons from "lucide-react-native";
 import { format } from "date-fns";
 import HabitCard from "../components/HabitCard";

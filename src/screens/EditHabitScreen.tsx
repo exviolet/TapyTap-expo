@@ -6,11 +6,11 @@ import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navig
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ThemeContext } from '../components/ThemeProvider';
 import { IconPickerModal } from '../components/IconPickerModal'; // <-- Добавляем импорт
-import { Habit, updateHabit, fetchCategories, Category, addCategory } from '../lib/habits';
+import { Habit, Category, HabitInput } from '../types';
+import { useHabitStore } from '../store/useHabitStore';
 import * as LucideIcons from "lucide-react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { format } from 'date-fns';
-import { supabase } from '../supabase/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 
 // Типы для навигации
@@ -52,6 +52,8 @@ export default function EditHabitScreen() {
     const navigation = useNavigation<EditHabitScreenNavigationProp>();
     const route = useRoute<EditHabitScreenRouteProp>();
     const { user } = useAuth();
+    const { categories, fetchCategories, addCategory, updateHabit } = useHabitStore();
+    const allCategories = categories.filter(cat => cat.id !== "All" && cat.id !== "Uncategorized");
 
     const [isIconPickerVisible, setIconPickerVisible] = useState(false); // <-- Новое состояние
     const { habit: initialHabit } = route.params;
@@ -64,7 +66,6 @@ export default function EditHabitScreen() {
     const [targetCompletions, setTargetCompletions] = useState(initialHabit.target_completions || 1);
     const [selectedIcon, setSelectedIcon] = useState(initialHabit.icon);
     const [selectedCategories, setSelectedCategories] = useState<Category[]>(initialHabit.categories || []);
-    const [allCategories, setAllCategories] = useState<Category[]>([]);
     const [goalSeries, setGoalSeries] = useState(initialHabit.goal_series === 1 ? 'Ежедневно' : initialHabit.goal_series === 7 ? 'Неделя' : initialHabit.goal_series === 30 ? 'Месяц' : 'Ежедневно');
     const [reminders, setReminders] = useState<Reminder[]>([]);
     const [isReminderModalVisible, setReminderModalVisible] = useState(false);
@@ -98,16 +99,6 @@ export default function EditHabitScreen() {
         "#4CAF50", "#F44336", "#2196F3", "#FF9800", "#9C27B0", "#03A9F4",
     ];
 
-    const loadCategories = useCallback(async () => {
-        try {
-            const fetchedCategories = await fetchCategories();
-            const filtered = fetchedCategories.filter(cat => cat.id !== "All" && cat.id !== "Без категории");
-            setAllCategories(filtered);
-        } catch (error) {
-            console.error("Error loading categories:", error);
-            Alert.alert("Ошибка", "Не удалось загрузить категории.");
-        }
-    }, []);
 
     useEffect(() => {
         // Парсинг frequency как JSON с обработкой ошибок
@@ -124,8 +115,8 @@ export default function EditHabitScreen() {
 
     useFocusEffect(
         useCallback(() => {
-            loadCategories();
-        }, [loadCategories])
+            if (user?.id) fetchCategories(user.id);
+        }, [user?.id, fetchCategories])
     );
 
     const handleCategoryToggle = (category: Category) => {
@@ -145,8 +136,9 @@ export default function EditHabitScreen() {
             Alert.alert("Ошибка", "Название новой категории не может быть пустым.");
             return;
         }
+        if (!user?.id) return;
         try {
-            const addedCategory = await addCategory({
+            const addedCategory = await addCategory(user.id, {
                 name: newCategoryName.trim(),
                 color: newCategoryColor,
                 icon: newCategoryIcon,
@@ -156,7 +148,6 @@ export default function EditHabitScreen() {
             setNewCategoryColor('#6A0DAD');
             setNewCategoryIcon('Book');
             setShowAddCategoryModal(false);
-            await loadCategories();
         } catch (error) {
             console.error("Error adding new category:", error);
             Alert.alert("Ошибка", `Не удалось добавить категорию: ${error instanceof Error ? error.message : String(error)}`);
@@ -203,7 +194,7 @@ export default function EditHabitScreen() {
         const goalSeriesValue = goalSeries === 'Ежедневно' ? 1 : goalSeries === 'Неделя' ? 7 : 30;
         const reminderData = JSON.stringify(reminders);
 
-        const updatedFields: Partial<Habit> = {
+        const updatedFields: HabitInput = {
             name: name.trim(),
             description: description.trim(),
             target_completions: targetCompletions,
@@ -216,8 +207,9 @@ export default function EditHabitScreen() {
 
         const categoryIdsToUpdate = selectedCategories.map(cat => cat.id);
 
+        if (!user?.id) return;
         try {
-            await updateHabit(initialHabit.id, updatedFields, categoryIdsToUpdate);
+            await updateHabit(user.id, initialHabit.id, updatedFields, categoryIdsToUpdate);
             Alert.alert("Успех", "Привычка успешно обновлена!");
             navigation.goBack();
         } catch (error) {

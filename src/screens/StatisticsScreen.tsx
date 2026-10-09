@@ -9,7 +9,7 @@ import { PieChart } from "react-native-gifted-charts";
 import { subDays, startOfDay, isWithinInterval, format, parseISO, eachDayOfInterval, getDay, getMonth } from 'date-fns';
 import { Svg, Rect } from 'react-native-svg';
 import * as LucideIcons from "lucide-react-native";
-import { Habit } from '../lib/habits';
+import { Habit } from '../types';
 
 const iconMap: any = LucideIcons;
 const SQUARE_SIZE = 12;

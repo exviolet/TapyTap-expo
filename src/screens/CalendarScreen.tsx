@@ -5,7 +5,7 @@ import { Calendar, DateData, LocaleConfig } from "react-native-calendars";
 import { useFocusEffect } from "@react-navigation/native";
 import { ThemeContext } from "../components/ThemeProvider";
 import { useHabitStore, HabitCompletionRecord } from "../store/useHabitStore";
-import { Habit } from '../lib/habits';
+import { Habit } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import * as LucideIcons from "lucide-react-native";
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subDays, getMonth } from 'date-fns';

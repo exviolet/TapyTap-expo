@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import * as LucideIcons from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Habit } from '@/lib/habits';
+import { Habit } from '../types';
 import { RootStackParamList } from '../navigation/AppNavigator'; // Импортируем типы
 
 const iconMap: any = LucideIcons;
