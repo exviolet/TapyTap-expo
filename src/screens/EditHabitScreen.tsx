@@ -101,12 +101,14 @@ export default function EditHabitScreen() {
 
 
     useEffect(() => {
-        // Парсинг frequency как JSON с обработкой ошибок
+        // AddHabit пишет { reminders: [...] }; старые версии EditHabit сохраняли
+        // голый массив строкой JSON — читаем оба формата
         try {
-            const parsedReminders = typeof initialHabit.frequency === 'string' 
-                ? JSON.parse(initialHabit.frequency) 
-                : initialHabit.frequency || [];
-            setReminders(Array.isArray(parsedReminders) ? parsedReminders : []);
+            const parsed = typeof initialHabit.frequency === 'string'
+                ? JSON.parse(initialHabit.frequency)
+                : initialHabit.frequency;
+            const list = Array.isArray(parsed) ? parsed : parsed?.reminders;
+            setReminders(Array.isArray(list) ? list : []);
         } catch (e) {
             console.warn("Failed to parse frequency, using empty array:", e);
             setReminders([]);
@@ -192,7 +194,6 @@ export default function EditHabitScreen() {
         }
 
         const goalSeriesValue = goalSeries === 'Ежедневно' ? 1 : goalSeries === 'Неделя' ? 7 : 30;
-        const reminderData = JSON.stringify(reminders);
 
         const updatedFields: HabitInput = {
             name: name.trim(),
@@ -200,7 +201,7 @@ export default function EditHabitScreen() {
             target_completions: targetCompletions,
             icon: selectedIcon,
             goal_series: goalSeriesValue,
-            frequency: reminderData,
+            frequency: { reminders },
             type: initialHabit.type, // Используем исходный тип, изменение запрещено
             unit: habitType === "quantitative" ? unit.trim() : null,
         };
