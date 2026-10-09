@@ -27,12 +27,13 @@ import HabitDetailScreen from '@/screens/HabitDetailScreen';
 import JournalScreen from '../screens/JournalScreen';
 import AddEditNoteScreen from '../screens/AddEditNoteScreen';
 import { HabitNote } from '../store/useHabitStore'; // Импортируем тип HabitNote
+import { Habit } from '../types';
 
 // Определение типов параметров
 export type RootStackParamList = {
   AppTabs: undefined;
   AddHabitModal: undefined;
-  EditHabit: { habitId: string };
+  EditHabit: { habit: Habit };
   Habits: undefined;
   SortCategories: undefined;
   SortHabits: undefined;

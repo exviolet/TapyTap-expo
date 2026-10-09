@@ -6,18 +6,14 @@ import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navig
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ThemeContext } from '../components/ThemeProvider';
 import { IconPickerModal } from '../components/IconPickerModal'; // <-- Добавляем импорт
-import { Habit, Category, HabitInput } from '../types';
+import { Category, HabitInput } from '../types';
 import { useHabitStore } from '../store/useHabitStore';
 import * as LucideIcons from "lucide-react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 
-// Типы для навигации
-type RootStackParamList = {
-    Habits: undefined;
-    EditHabit: { habit: Habit };
-};
+import type { RootStackParamList } from '../navigation/AppNavigator';
 
 type EditHabitScreenRouteProp = RouteProp<RootStackParamList, 'EditHabit'>;
 type EditHabitScreenNavigationProp = StackNavigationProp<RootStackParamList, 'EditHabit'>;
