@@ -52,10 +52,6 @@ interface Props {
 }
 
 const HabitDetailSheet: React.FC<Props> = ({ habit, onClose }) => {
-  console.log(
-    "РЕНДЕР HabitDetailSheet: получен проп habit ->",
-    habit ? habit.name : null,
-  );
   const { colors } = useContext(ThemeContext)!;
   const {
     allCompletions,
@@ -77,7 +73,6 @@ const HabitDetailSheet: React.FC<Props> = ({ habit, onClose }) => {
   const [isPostingNote, setIsPostingNote] = useState(false);
 
   const sheetIndex = useMemo(() => (habit ? 0 : -1), [habit]);
-  console.log("ЛОГИКА HabitDetailSheet: Вычеслений sheetIndex ->", sheetIndex);
   const snapPoints = useMemo(() => ["80%", "90%"], []);
 
   useEffect(() => {

@@ -39,7 +39,6 @@ type RootStackParamList = {
   EditHabit: { habit: Habit };
   SortCategories: undefined;
   SortHabits: { categoryId: string; categoryName: string };
-  HabitOverviewScreen: { habitId: string; habitName: string };
   Journal: { habitId?: string };
 };
 type NavigationProp = StackNavigationProp<RootStackParamList, "Habits">;
@@ -351,7 +350,6 @@ export default function HabitsScreen() {
     setActionModalVisible(true);
   };
   const handleHabitPress = (habit: Habit) => {
-    console.log("НАЖАТИЯ выбрана привычка ->", habit.name);
     setSelectedHabitForDetail(habit);
   };
 
@@ -374,11 +372,6 @@ export default function HabitsScreen() {
       currentDate,
       streaks,
     ],
-  );
-
-  console.log(
-    "РЕНДЕР HabitsScreen: Состояние selectedHabitForDetail ->",
-    selectedHabitForDetail ? selectedHabitForDetail.name : null,
   );
 
   return (

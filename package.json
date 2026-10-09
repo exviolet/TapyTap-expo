@@ -23,16 +23,13 @@
     "date-fns": "^3.6.0",
     "expo": "~57.0.27",
     "expo-dev-client": "~57.0.19",
-    "expo-image-picker": "~57.0.20",
     "expo-linear-gradient": "~57.0.2",
     "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
     "expo-updates": "~57.0.25",
-    "firebase": "^10.12.2",
     "lucide-react-native": "^0.544.0",
     "react": "19.2.3",
-    "react-i18next": "^14.1.2",
     "react-native": "0.86.3",
     "react-native-calendars": "^1.1305.0",
     "react-native-draggable-flatlist": "^4.0.1",
@@ -51,8 +48,5 @@
     "@types/react": "~19.2.4",
     "typescript": "~6.0.3"
   },
-  "private": true,
-  "trustedDependencies": [
-    "protobufjs"
-  ]
+  "private": true
 }
