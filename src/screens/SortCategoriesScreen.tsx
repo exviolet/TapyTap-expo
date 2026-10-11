@@ -109,6 +109,7 @@ export default function SortCategoriesScreen() {
                 keyExtractor={(item) => item.id}
                 onDragEnd={({ data }) => setCategories(data)}
                 renderItem={renderItem}
+                containerStyle={styles.list}
                 contentContainerStyle={styles.draggableListContent}
             />
 
@@ -135,12 +136,13 @@ const styles = StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 20 },
     backButton: { padding: 8 },
     title: { fontSize: 22, fontWeight: 'bold', flex: 1, textAlign: 'center' },
+    list: { flex: 1 }, // список скроллится сам, кнопка «Готово» остаётся внизу экрана
     draggableListContent: { paddingHorizontal: 16, paddingBottom: 20 },
     categoryItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 15, paddingHorizontal: 20, borderRadius: 12, marginBottom: 10 },
     categoryInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
     categoryItemText: { marginLeft: 15, fontSize: 16, fontWeight: '500' },
     dragHandle: { padding: 10 },
-    saveButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, paddingVertical: 15, borderRadius: 15, marginBottom: 20 },
+    saveButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, paddingVertical: 15, borderRadius: 15, marginBottom: 40 }, // кнопка «+» таб-бара выступает над ним на 25px
     saveButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
     centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });

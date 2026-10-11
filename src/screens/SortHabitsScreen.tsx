@@ -69,6 +69,8 @@ export default function SortHabitsScreen() {
                 keyExtractor={(item) => item.id}
                 onDragEnd={({ data }) => setHabitsToSort(data)}
                 renderItem={renderItem}
+                containerStyle={styles.list}
+                contentContainerStyle={styles.draggableListContent}
             />
 
             <TouchableOpacity onPress={handleSaveOrder} style={[styles.saveButton, { backgroundColor: colors.accent }]} disabled={isSaving}>
@@ -98,6 +100,9 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         flex: 1,
         textAlign: 'center',
+    },
+    list: {
+        flex: 1, // список скроллится сам, кнопка «Сохранить» остаётся внизу экрана
     },
     draggableListContent: {
         paddingHorizontal: 16,
@@ -136,7 +141,7 @@ const styles = StyleSheet.create({
         marginHorizontal: 16,
         paddingVertical: 15,
         borderRadius: 15,
-        marginBottom: 20,
+        marginBottom: 40, // кнопка «+» таб-бара выступает над ним на 25px
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
