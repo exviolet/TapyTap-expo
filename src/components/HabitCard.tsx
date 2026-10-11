@@ -103,6 +103,7 @@ const styles = StyleSheet.create({
         fontSize: 17,
         fontWeight: '600',
         marginRight: 8,
+        flexShrink: 1, // длинное название переносится, а не выталкивает бейдж стрика на кнопки
     },
     streakContainer: {
         flexDirection: 'row',
